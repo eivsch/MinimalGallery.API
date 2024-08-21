@@ -6,4 +6,5 @@ record Media
     public required string Name {get;set;}
     public required DateTimeOffset Created {get;set;}
     public int? Size {get;set;}
+    public List<Tag> Tags {get;set;} = [];
 }

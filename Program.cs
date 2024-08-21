@@ -26,18 +26,12 @@ app.UseExceptionHandler(exHandler => exHandler.Run(async context =>
 );
 
 // Misc
-string storagePath = app.Configuration.GetValue<string>("IndexFilesStoragePath") ?? throw new Exception("'IndexFilesStoragePath' is a required config value.");
-
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+FileStorageHandler.StoragePath = app.Configuration.GetValue<string>("IndexFilesStoragePath") ?? throw new Exception("'IndexFilesStoragePath' is a required config value.");
 
 // Endpoints
 app.MapPost("/users", (NewUserRequest r) => 
 {
-    bool userCreated = FileStorageHandler.CreateNewUser(storagePath, r.UserName);
+    bool userCreated = FileStorageHandler.CreateNewUser(r.UserName);
     if (!userCreated) return Results.Ok();
 
     return Results.Created();
@@ -47,28 +41,29 @@ app.MapPost("/users", (NewUserRequest r) =>
 
 app.MapPost("/users/{userName}/albums", (string userName, NewAlbumRequest r) => 
 {
-    FileStorageHandler.CreateNewAlbum(storagePath, userName, r.AlbumName);
+    FileStorageHandler.CreateNewAlbum(userName, r.AlbumName);
     return Results.Created();
-})
-.Produces(StatusCodes.Status201Created);
+}).Produces(StatusCodes.Status201Created);
 
-app.MapPost("/users/{userName}/albums/{albumName}",(string userName, string albumName, NewMediaRequest r) => 
+app.MapPost("/users/{userName}/albums/{albumName}/media-items",(string userName, string albumName, NewMediaRequest r) => 
 {
-    FileStorageHandler.AddNewMedia(storagePath, userName, albumName, r);
+    FileStorageHandler.AddNewMedia(userName, albumName, r);
     return Results.Created();
-})
-.Produces(StatusCodes.Status201Created);
+}).Produces(StatusCodes.Status201Created);
 
-app.MapGet("/users/{userName}/albums/{albumName}/{searchTerm}", (string userName, string albumName, string searchTerm) => 
+app.MapGet("/users/{userName}/albums/{albumName}/{mediaLocator}", (string userName, string albumName, string mediaLocator) => 
 {
     // searchTerm can be e.g. a name or id
-    Media? m = FileStorageHandler.GetMedia(storagePath, userName, albumName, searchTerm);
+    Media? m = FileStorageHandler.GetMedia(userName, albumName, mediaLocator);
     return Results.Ok(m);
 });
 
-app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+app.MapPost("/users/{userName}/albums/{albumName}/{mediaName}/tags", (string userName, string albumName, string mediaName, NewTagRequest r) => 
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+    FileStorageHandler.AddTag(userName, albumName, mediaName, r);
+    return Results.Created();
+}).Produces(StatusCodes.Status201Created);
+
+// app.MapGet("/search/users/{username}/tags/{tagName}")
+
+app.Run();
