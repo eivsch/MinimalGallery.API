@@ -31,13 +31,19 @@ FileStorageHandler.StoragePath = app.Configuration.GetValue<string>("IndexFilesS
 // Endpoints
 app.MapPost("/users", (NewUserRequest r) => 
 {
-    bool userCreated = FileStorageHandler.CreateNewUser(r.UserName);
+    bool userCreated = UserHandler.CreateNewUser(r.UserName);
     if (!userCreated) return Results.Ok();
 
     return Results.Created();
 })
 .Produces(StatusCodes.Status201Created)
 .Produces(StatusCodes.Status200OK);
+
+app.MapGet("/users/{username}", (string username) => 
+{
+    UserMeta? userMeta = UserHandler.GetUserMeta(username); 
+    return Results.Ok(userMeta);
+});
 
 app.MapPost("/users/{userName}/albums", (string userName, NewAlbumRequest r) => 
 {
@@ -60,10 +66,10 @@ app.MapGet("/users/{userName}/albums/{albumName}/{mediaLocator}", (string userNa
 
 app.MapPost("/users/{userName}/albums/{albumName}/{mediaName}/tags", (string userName, string albumName, string mediaName, NewTagRequest r) => 
 {
-    FileStorageHandler.AddTag(userName, albumName, mediaName, r);
-    return Results.Created();
-}).Produces(StatusCodes.Status201Created);
-
-// app.MapGet("/search/users/{username}/tags/{tagName}")
+    bool created = FileStorageHandler.AddTag(userName, albumName, mediaName, r);
+    return created ? Results.Created() : Results.Ok();
+})
+.Produces(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status201Created);
 
 app.Run();

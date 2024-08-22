@@ -11,36 +11,24 @@ static class FileStorageHandler
     const int CHUNK_SIZE = 1024*2;
 
     public static string StoragePath {get;set;} = "not set";
-    
-    public static bool CreateNewUser(string userName)
-    {
-        string path = Path.Combine(StoragePath, userName);
-        if (Directory.Exists(path)) 
-            return false;
-        
-        Directory.CreateDirectory(path);
-        
-        string userMeta = Path.Combine(path, $"{userName}_meta.{FILE_EXT}");
-        var metaData = new 
-        {
-            Name = userName,
-            Created = DateTimeOffset.Now,
-            AlbumsCount = 0,
-        };
-
-        string json = JsonSerializer.Serialize(metaData);
-        File.WriteAllText(userMeta, json);
-
-        return true;
-    }
 
     public static void CreateNewAlbum(string username, string albumName)
     {
         if (!PathExists(StoragePath, username)) throw new Exception($"The user '{username}' doesn't exist. Create the user first.");
         string albumIndexName = GetPathAlbum(username, albumName);
         
-        if (File.Exists(albumIndexName)) throw new Exception($"The album '{albumName}' for user '{username}' already exists.");
+        if (File.Exists(albumIndexName)) return;
         using FileStream fs = File.Create(albumIndexName);
+
+        // update user metadata
+        UserMeta userMeta = UserHandler.ReadUser(username) ?? throw new Exception("User cannot be null here.");
+        UserAlbumMeta m = new()
+        {
+            AlbumName = albumName,
+            Created = DateTime.UtcNow
+        };
+        userMeta.AlbumMeta.Add(m);
+        UserHandler.WriteUser(userMeta);
     }
 
     public static void AddNewMedia(string username, string albumName, NewMediaRequest r)
@@ -65,7 +53,7 @@ static class FileStorageHandler
     public static Media? GetMedia(string username, string albumName, string searchTerm)
     {
         string path = GetPathAlbum(username, albumName);
-        if (!File.Exists(path)) throw new Exception($"The album '{albumName}' for user '{username}' doesn't exist. Create it first.");
+        if (!File.Exists(path)) return null;
 
         foreach (string line in File.ReadLines(path))
         {
@@ -80,20 +68,50 @@ static class FileStorageHandler
         return null;
     }
 
-    public static void AddTag(string username, string albumName, string searchTerm, NewTagRequest r)
+    public static bool AddTag(string username, string albumName, string searchTerm, NewTagRequest r)
     {
         string path = GetPathAlbum(username, albumName);
-        if (!File.Exists(path)) throw new Exception($"Add tag failed. The album '{albumName}' for user '{username}' doesn't exist.");
+        if (!File.Exists(path)) return false;
 
-        int? i = GetChunkIndex(path, searchTerm) ?? throw new Exception($"Add tag failed. Cannot find '{searchTerm}' in album '{albumName}'.");
+        int? i = GetChunkIndex(path, searchTerm);
+        if (!i.HasValue) return false;
 
-        Tag t = new() { TagName = r.TagName, Created = DateTimeOffset.Now };
+        Tag t = new() { TagName = r.TagName, Created = DateTime.UtcNow };
 
         using FileStream fs = new(path, FileMode.Open, FileAccess.ReadWrite);
-        Media? media = ReadMediaChunk(fs, i.Value) ?? throw new Exception("Add tag failed. Unable to read media item from file.");
+        Media media = ReadMediaChunk(fs, i.Value) ?? throw new Exception("Add tag failed. Unable to read media item from file.");
+        if (media.Tags.Any(a => a.TagName == r.TagName)) return false;
         media.Tags.Add(t);
-        byte[] asBytes = GetDataAsByteChunk(media);
-        fs.Write(asBytes, 0, asBytes.Length);
+        WriteMediaChunk(fs, i.Value, media);
+
+        // update tag meta data of user
+        UserMeta user = UserHandler.ReadUser(username) ?? throw new Exception("User cannot be null here.");
+        UserTagMeta? tagMeta = user.TagMeta.FirstOrDefault(f => f.TagName == r.TagName);
+        if (tagMeta == null)
+        {
+            UserTagMeta newTagMeta = new() { TagName = r.TagName, Count = 1 };
+            user.TagMeta.Add(newTagMeta);
+        }
+        else
+        {
+            tagMeta.Count++;
+        }
+
+        UserHandler.WriteUser(user);
+
+        return true;
+    }
+
+    public static string GetPathUser(string username)
+    {
+        string userDir = Path.Combine(StoragePath, username);
+
+        return GetFilenameUser(userDir, username);
+    }
+
+    public static string GetFilenameUser(string userDir, string username)
+    {
+        return Path.Combine(userDir, $"{username}_meta.{FILE_EXT}");
     }
 
     // helpers
@@ -136,6 +154,15 @@ static class FileStorageHandler
         Media? media = DeserializeMediaString(chunkStr);
 
         return media;
+    }
+
+    private static void WriteMediaChunk(FileStream fs, int chunkIndex, Media media)
+    {
+        if (!fs.CanWrite) throw new Exception("Unable to write to the provided file stream. File stream must be opened in either write or read-write mode.");
+
+        byte[] dataChunk = GetDataAsByteChunk(media);
+        fs.Seek(chunkIndex*CHUNK_SIZE, SeekOrigin.Begin);
+        fs.Write(dataChunk, 0, dataChunk.Length);
     }
 
     private static Media? DeserializeMediaString(string mediaStr)
