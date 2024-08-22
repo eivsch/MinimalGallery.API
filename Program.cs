@@ -45,11 +45,27 @@ app.MapGet("/users/{username}", (string username) =>
     return Results.Ok(userMeta);
 });
 
+app.MapDelete("/users/{username}", (string username) => 
+{
+    bool deleted = UserHandler.DeleteUser(username);
+    return deleted ? Results.NoContent() : Results.Ok();
+})
+.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status200OK);
+
 app.MapPost("/users/{userName}/albums", (string userName, NewAlbumRequest r) => 
 {
     FileStorageHandler.CreateNewAlbum(userName, r.AlbumName);
     return Results.Created();
 }).Produces(StatusCodes.Status201Created);
+
+app.MapDelete("/users/{username}/albums/{albumName}", (string username, string albumName) => 
+{
+    bool deleted = FileStorageHandler.DeleteAlbum(username, albumName);
+    return deleted ? Results.NoContent() : Results.Ok();
+})
+.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status200OK);
 
 app.MapPost("/users/{userName}/albums/{albumName}/media-items",(string userName, string albumName, NewMediaRequest r) => 
 {
@@ -59,17 +75,33 @@ app.MapPost("/users/{userName}/albums/{albumName}/media-items",(string userName,
 
 app.MapGet("/users/{userName}/albums/{albumName}/{mediaLocator}", (string userName, string albumName, string mediaLocator) => 
 {
-    // searchTerm can be e.g. a name or id
+    // mediaLocator can be e.g. a name or id
     Media? m = FileStorageHandler.GetMedia(userName, albumName, mediaLocator);
     return Results.Ok(m);
 });
 
-app.MapPost("/users/{userName}/albums/{albumName}/{mediaName}/tags", (string userName, string albumName, string mediaName, NewTagRequest r) => 
+app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}", (string username, string albumName, string mediaLocator) => 
 {
-    bool created = FileStorageHandler.AddTag(userName, albumName, mediaName, r);
+    bool deleted = FileStorageHandler.DeleteMedia(username, albumName, mediaLocator);
+    return deleted ? Results.NoContent() : Results.Ok();
+})
+.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status200OK);
+
+app.MapPost("/users/{userName}/albums/{albumName}/{mediaLocator}/tags", (string userName, string albumName, string mediaLocator, NewTagRequest r) => 
+{
+    bool created = FileStorageHandler.AddTag(userName, albumName, mediaLocator, r);
     return created ? Results.Created() : Results.Ok();
 })
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status201Created);
+
+app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}/tags", (string username, string albumName, string mediaLocator, DeleteTagRequest r) => 
+{
+    bool deleted = FileStorageHandler.DeleteTag(username, albumName, mediaLocator, r);
+    return deleted ? Results.NoContent() : Results.Ok();
+})
+.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status200OK);
 
 app.Run();

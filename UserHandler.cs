@@ -36,6 +36,16 @@ static class UserHandler
         return user;
     }
 
+    public static bool DeleteUser(string username)
+    {
+        string path = Path.Combine(FileStorageHandler.StoragePath, username);
+        if (!Directory.Exists(path)) return false;
+        
+        Directory.Delete(path, recursive: true);
+
+        return true;
+    }
+
     public static UserMeta? ReadUser(string username)
     {
         string path = FileStorageHandler.GetPathUser(username);

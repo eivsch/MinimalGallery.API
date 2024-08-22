@@ -31,6 +31,37 @@ static class FileStorageHandler
         UserHandler.WriteUser(userMeta);
     }
 
+    public static bool DeleteAlbum(string username, string albumName)
+    {
+        string path = GetPathAlbum(username, albumName);
+        if (!File.Exists(path)) return false;
+        
+        // update user metadata
+        UserMeta userMeta = UserHandler.ReadUser(username) ?? throw new Exception("User cannot be null here.");
+        UserAlbumMeta? m = userMeta.AlbumMeta.FirstOrDefault(f => f.AlbumName == albumName);
+        if (m == null) return false;
+
+        userMeta.AlbumMeta.Remove(m);
+        List<Tag> albumTags = [];
+        foreach (string line in File.ReadLines(path))
+        {
+            Media? media = DeserializeMediaString(line);
+            if (media == null) continue;
+            foreach (Tag tag in media.Tags)
+            {
+                UserTagMeta? tagMeta = userMeta.TagMeta.FirstOrDefault(x => x.TagName == tag.TagName);
+                if (tagMeta == null) continue;
+                else if (tagMeta.Count <= 1) userMeta.TagMeta.Remove(tagMeta);
+                else tagMeta.Count--;
+            }
+        }
+
+        UserHandler.WriteUser(userMeta);
+        File.Delete(path);
+
+        return true;
+    }
+
     public static void AddNewMedia(string username, string albumName, NewMediaRequest r)
     {
         string path = GetPathAlbum(username, albumName);
@@ -68,6 +99,46 @@ static class FileStorageHandler
         return null;
     }
 
+    public static bool DeleteMedia(string username, string albumName, string searchTerm)
+    {
+        string path = GetPathAlbum(username, albumName);
+        if (!File.Exists(path)) return false;
+
+        int? i = GetChunkIndex(path, searchTerm);
+        if (!i.HasValue) return false;
+        
+        using FileStream fs = new(path, FileMode.Open, FileAccess.ReadWrite);
+        Media media = ReadMediaChunk(fs, i.Value) ?? throw new Exception("Media cannot be null here.");
+
+        // Shift the remainder of the file one chunk "upwards"
+        int j = i.Value + 1;
+        int bytesToRead = (int)fs.Length - (j * CHUNK_SIZE);  // This will only work for medium size files. If file size expected to exceed 100 MB then should consider rewriting
+        byte[] readBuffer = new byte[bytesToRead];
+        // read remainder from 'j'
+        int offset_j = j * CHUNK_SIZE;
+        fs.Seek(offset_j, SeekOrigin.Begin);
+        fs.Read(readBuffer, 0, readBuffer.Length);
+        // overwrite remainder from 'i'
+        int offset_i = i.Value * CHUNK_SIZE;
+        fs.Seek(offset_i, SeekOrigin.Begin);
+        fs.Write(readBuffer, 0, readBuffer.Length);
+        // remove remainder at the end
+        long newLength = fs.Length - CHUNK_SIZE;
+        fs.SetLength(newLength);
+
+        // remove any tags from user metadata
+        UserMeta user = UserHandler.ReadUser(username) ?? throw new Exception("User cannot be null here.");
+        foreach (Tag tag in media.Tags)
+        {
+            UserTagMeta? tagMeta = user.TagMeta.FirstOrDefault(f => f.TagName == tag.TagName);
+            if (tagMeta != null) tagMeta.Count--;
+        }
+
+        UserHandler.WriteUser(user);
+
+        return true;
+    }
+
     public static bool AddTag(string username, string albumName, string searchTerm, NewTagRequest r)
     {
         string path = GetPathAlbum(username, albumName);
@@ -102,6 +173,32 @@ static class FileStorageHandler
         return true;
     }
 
+    public static bool DeleteTag(string username, string albumName, string mediaLocator, DeleteTagRequest r)
+    {
+        string path = GetPathAlbum(username, albumName);
+        if (!File.Exists(path)) return false;
+
+        int? i = GetChunkIndex(path, mediaLocator);
+        if (!i.HasValue) return false;
+
+        using FileStream fs = new(path, FileMode.Open, FileAccess.ReadWrite);
+        Media media = ReadMediaChunk(fs, i.Value) ?? throw new Exception("Delete tag failed. Unable to read media item from file.");
+        Tag? t = media.Tags.FirstOrDefault(f => f.TagName == r.TagName);
+        if (t == null) return false;
+
+        media.Tags.Remove(t);
+        WriteMediaChunk(fs, i.Value, media);
+
+        // update tag meta data of user
+        UserMeta user = UserHandler.ReadUser(username) ?? throw new Exception("User cannot be null here.");
+        UserTagMeta? tagMeta = user.TagMeta.FirstOrDefault(f => f.TagName == r.TagName);
+        if (tagMeta != null) tagMeta.Count--;
+
+        UserHandler.WriteUser(user);
+
+        return true;
+    }
+
     public static string GetPathUser(string username)
     {
         string userDir = Path.Combine(StoragePath, username);
@@ -109,7 +206,7 @@ static class FileStorageHandler
         return GetFilenameUser(userDir, username);
     }
 
-    public static string GetFilenameUser(string userDir, string username)
+    private static string GetFilenameUser(string userDir, string username)
     {
         return Path.Combine(userDir, $"{username}_meta.{FILE_EXT}");
     }
