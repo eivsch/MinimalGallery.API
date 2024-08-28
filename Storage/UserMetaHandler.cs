@@ -5,9 +5,9 @@ namespace MinimalGallery.API.Storage;
 
 static class UserMetaHandler
 {
-    public static bool CreateNewUser(string userName)
+    public static bool CreateNewUser(NewUserRequest r)
     {
-        string path = Path.Combine(Globals.StoragePath, userName);
+        string path = Path.Combine(Globals.StoragePath, r.Username);
         if (Directory.Exists(path)) 
             return false;
         
@@ -15,7 +15,8 @@ static class UserMetaHandler
 
         UserMeta metaData = new()
         {
-            Username = userName,
+            Username = r.Username,
+            Password = r.Password,
             AlbumMeta = [],
             Created = DateTime.UtcNow,
         };

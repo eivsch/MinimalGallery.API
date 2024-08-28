@@ -31,7 +31,7 @@ Globals.StoragePath = app.Configuration.GetValue<string>("IndexFilesStoragePath"
 // Endpoints
 app.MapPost("/users", (NewUserRequest r) => 
 {
-    bool userCreated = MinimalGallery.API.Storage.UserMetaHandler.CreateNewUser(r.UserName);
+    bool userCreated = MinimalGallery.API.Storage.UserMetaHandler.CreateNewUser(r);
     if (!userCreated) return Results.Ok();
 
     return Results.Created();
@@ -41,8 +41,8 @@ app.MapPost("/users", (NewUserRequest r) =>
 
 app.MapGet("/users/{username}", (string username) => 
 {
-    UserMeta? userMeta = MinimalGallery.API.Storage.UserMetaHandler.GetUserMeta(username); 
-    return Results.Ok(userMeta);
+    UserCredentials? userCredentials = RequestHelper.GetUserCredentials(username); 
+    return Results.Ok(userCredentials);
 });
 
 app.MapDelete("/users/{username}", (string username) => 
@@ -58,6 +58,12 @@ app.MapPost("/users/{userName}/albums", (string userName, NewAlbumRequest r) =>
     RequestHelper.CreateNewAlbum(userName, r.AlbumName);
     return Results.Created();
 }).Produces(StatusCodes.Status201Created);
+
+app.MapGet("/users/{username}/albums", (string username) => 
+{
+    UserMeta? data = MinimalGallery.API.Storage.UserMetaHandler.GetUserMeta(username);
+    return data?.AlbumMeta;
+});
 
 app.MapDelete("/users/{username}/albums/{albumName}", (string username, string albumName) => 
 {
@@ -96,12 +102,11 @@ app.MapPost("/users/{userName}/albums/{albumName}/{mediaLocator}/tags", (string 
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status201Created);
 
-app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}/tags", (string username, string albumName, string mediaLocator, DeleteTagRequest r) => 
-{
-    bool deleted = RequestHelper.DeleteTag(username, albumName, mediaLocator, r);
+app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}/tags/{tag}", (string username, string albumName, string mediaLocator, string tag) => {
+    bool deleted = RequestHelper.DeleteTag(username, albumName, mediaLocator, tag);
     return deleted ? Results.NoContent() : Results.Ok();
 })
-.Produces(StatusCodes.Status204NoContent)
-.Produces(StatusCodes.Status200OK);
+.Produces(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status204NoContent);
 
 app.Run();

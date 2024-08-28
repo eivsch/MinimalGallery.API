@@ -1,10 +1,22 @@
-namespace MinimalGallery.API;
-
 using MinimalGallery.API.Models;
 using MinimalGallery.API.Storage;
 
+namespace MinimalGallery.API;
+
 static class RequestHelper
 {
+    public static UserCredentials? GetUserCredentials(string username)
+    {
+        UserMeta? data = UserMetaHandler.GetUserMeta(username);
+        if (data == null) return null;
+
+        return new UserCredentials
+        {
+            Username = data.Username,
+            Password = data.Password
+        };
+    }
+
     public static void CreateNewAlbum(string username, string albumName)
     {
         AlbumIndexHandler.CreateIndex(username, albumName);
@@ -58,12 +70,12 @@ static class RequestHelper
         return true;
     }
 
-    public static bool DeleteTag(string username, string albumName, string mediaLocator, DeleteTagRequest r)
+    public static bool DeleteTag(string username, string albumName, string mediaLocator, string tag)
     {
         (Media? media, int? i) = AlbumIndexHandler.ReadMediaChunk(username, albumName, mediaLocator);
         if (media == null || i == null) return false;
         
-        Tag? t = media.Tags.FirstOrDefault(f => f.TagName == r.TagName);
+        Tag? t = media.Tags.FirstOrDefault(f => f.TagName == tag);
         if (t == null) return false;
         else media.Tags.Remove(t);
         

@@ -111,18 +111,18 @@ static class AlbumIndexHandler
         // Shift the remainder of the file one chunk "upwards"
         using FileStream fs = new(path, FileMode.Open, FileAccess.ReadWrite);
         int j = i + 1;
-        int bytesToRead = (int)fs.Length - (j * Globals.CHUNK_SIZE);  // This will only work for medium size files. If file size expected to exceed 100 MB then should consider rewriting
+        int bytesToRead = (int)fs.Length - (j * CHUNK_SIZE);  // This will only work for medium size files. If file size expected to exceed 100 MB then should consider rewriting
         byte[] readBuffer = new byte[bytesToRead];
         // read remainder from 'j'
-        int offset_j = j * Globals.CHUNK_SIZE;
+        int offset_j = j * CHUNK_SIZE;
         fs.Seek(offset_j, SeekOrigin.Begin);
         fs.Read(readBuffer, 0, readBuffer.Length);
         // overwrite remainder from 'i'
-        int offset_i = i * Globals.CHUNK_SIZE;
+        int offset_i = i * CHUNK_SIZE;
         fs.Seek(offset_i, SeekOrigin.Begin);
         fs.Write(readBuffer, 0, readBuffer.Length);
         // remove remainder at the end
-        long newLength = fs.Length - Globals.CHUNK_SIZE;
+        long newLength = fs.Length - CHUNK_SIZE;
         fs.SetLength(newLength);
     }
 
