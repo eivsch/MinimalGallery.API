@@ -35,7 +35,7 @@ static class AlbumIndexHandler
     public static void AddMedia(string username, string albumName, Media media)
     {
         string path = GetPathAlbum(username, albumName);
-        if (!File.Exists(path)) CreateIndex(username, albumName);
+        if (!File.Exists(path)) throw new Exception($"The album {albumName} doesn't exist. Create it first.");
 
         byte[] newData = GetDataAsByteChunk(media);
         using FileStream fs = new(path, FileMode.Open, FileAccess.Write);
@@ -59,6 +59,35 @@ static class AlbumIndexHandler
         }
 
         return null;
+    }
+
+    public static List<Media>? GetAlbumItems(string username, string albumName, int from = 0, int to = 32)
+    {
+        List<Media> result = [];
+
+        string path = GetPathAlbum(username, albumName);
+        if (!File.Exists(path)) return null;
+        
+        byte[] buffer = new byte[CHUNK_SIZE];
+        using (FileStream fs = new(path, FileMode.Open, FileAccess.Read))
+        {
+            while (from < to)
+            {
+                int offset = from*CHUNK_SIZE;
+                if (offset > fs.Length-CHUNK_SIZE) break;
+
+                fs.Seek(offset, SeekOrigin.Begin);
+                int n = fs.Read(buffer, 0, CHUNK_SIZE);
+                if (n == 0) break;
+                string chunkStr = Encoding.UTF8.GetString(buffer);
+                Media? m = DeserializeMediaString(chunkStr);
+                if (m != null) result.Add(m);
+
+                from++;
+            }
+        }
+
+        return result;
     }
 
     public static (Media? m, int? i) ReadMediaChunk(string username, string albumName, string searchTerm)
@@ -146,7 +175,7 @@ static class AlbumIndexHandler
         return dataChunk;
     }
 
-     private static Media? DeserializeMediaString(string mediaStr)
+    private static Media? DeserializeMediaString(string mediaStr)
     {
         int endIndex = mediaStr.IndexOf(END_TAG);
         mediaStr = mediaStr[..endIndex];

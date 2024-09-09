@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MinimalGallery.API;
 using MinimalGallery.API.Models;
+using MinimalGallery.API.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,7 +29,7 @@ app.UseExceptionHandler(exHandler => exHandler.Run(async context =>
 // Misc
 Globals.StoragePath = app.Configuration.GetValue<string>("IndexFilesStoragePath") ?? throw new Exception("'IndexFilesStoragePath' is a required config value.");
 
-// Endpoints
+// Endpoints - Indices
 app.MapPost("/users", (NewUserRequest r) => 
 {
     bool userCreated = MinimalGallery.API.Storage.UserMetaHandler.CreateNewUser(r);
@@ -64,6 +65,13 @@ app.MapGet("/users/{username}/albums", (string username) =>
     UserMeta? data = MinimalGallery.API.Storage.UserMetaHandler.GetUserMeta(username);
     return data?.AlbumMeta;
 });
+
+app.MapGet("/users/{username}/albums/{albumName}", (string username, string albumName, int from = 0, int to = 32) => 
+{
+    List<Media>? result = AlbumIndexHandler.GetAlbumItems(username, albumName, from, to);
+    return result;
+});
+
 
 app.MapDelete("/users/{username}/albums/{albumName}", (string username, string albumName) => 
 {
@@ -108,5 +116,10 @@ app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}/tags/{tag}", 
 })
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status204NoContent);
+
+// Endpoints - Files
+// app.MapPost("/files/{username}/albums/{albumName}", (string username, string albumName) => {
+
+// })
 
 app.Run();
