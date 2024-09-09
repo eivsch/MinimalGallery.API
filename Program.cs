@@ -63,12 +63,26 @@ app.MapPost("/users/{userName}/albums", (string userName, NewAlbumRequest r) =>
 app.MapGet("/users/{username}/albums", (string username) => 
 {
     UserMeta? data = MinimalGallery.API.Storage.UserMetaHandler.GetUserMeta(username);
+    if (data == null) return null;
+    foreach (UserAlbumMeta a in data.AlbumMeta)
+    {
+        int totalCount = AlbumIndexHandler.GetAlbumItemsCount(username, a.AlbumName);
+        a.TotalCount = totalCount;
+    }
+
     return data?.AlbumMeta;
 });
 
 app.MapGet("/users/{username}/albums/{albumName}", (string username, string albumName, int from = 0, int to = 32) => 
 {
-    List<Media>? result = AlbumIndexHandler.GetAlbumItems(username, albumName, from, to);
+    int albumCount = AlbumIndexHandler.GetAlbumItemsCount(username, albumName);
+    List<Media>? items = AlbumIndexHandler.GetAlbumItems(username, albumName, from, to);
+    var result = new
+    {
+        TotalCount = albumCount,
+        Items = items
+    };
+    
     return result;
 });
 

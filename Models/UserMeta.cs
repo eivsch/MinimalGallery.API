@@ -13,6 +13,7 @@ record UserAlbumMeta
     public required string AlbumName {get;set;}
     public required DateTime Created {get;set;}
     public required List<UserAlbumTagMeta> Tags {get;set;}
+    public int? TotalCount{get;set;}
 }
 
 record UserAlbumTagMeta

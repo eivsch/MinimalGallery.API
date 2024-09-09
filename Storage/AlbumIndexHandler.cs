@@ -155,6 +155,17 @@ static class AlbumIndexHandler
         fs.SetLength(newLength);
     }
 
+    public static int GetAlbumItemsCount(string username, string albumName)
+    {
+        string path = GetPathAlbum(username, albumName);
+        if (!File.Exists(path)) return -1;
+
+        using FileStream fs = new(path, FileMode.Open, FileAccess.Read);
+        int count =  (int) fs.Length/CHUNK_SIZE;
+
+        return count;
+    }
+
     // helpers
     private static byte[] GetDataAsByteChunk(Media data)
     {
