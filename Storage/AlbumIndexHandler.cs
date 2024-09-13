@@ -61,8 +61,10 @@ static class AlbumIndexHandler
         return null;
     }
 
-    public static List<Media>? GetAlbumItems(string username, string albumName, int from = 0, int to = 32)
+    public static List<Media>? GetAlbumItems(string username, string albumName, int from = 0, int size = 32)
     {
+        if (from < 0) throw new ArgumentException("Parameter 'from' must be 0 or above.");
+        
         List<Media> result = [];
 
         string path = GetPathAlbum(username, albumName);
@@ -71,7 +73,8 @@ static class AlbumIndexHandler
         byte[] buffer = new byte[CHUNK_SIZE];
         using (FileStream fs = new(path, FileMode.Open, FileAccess.Read))
         {
-            while (from < to)
+            int endIndex = from + size;
+            for(; from < endIndex; from++)
             {
                 int offset = from*CHUNK_SIZE;
                 if (offset > fs.Length-CHUNK_SIZE) break;
@@ -82,8 +85,6 @@ static class AlbumIndexHandler
                 string chunkStr = Encoding.UTF8.GetString(buffer);
                 Media? m = DeserializeMediaString(chunkStr);
                 if (m != null) result.Add(m);
-
-                from++;
             }
         }
 

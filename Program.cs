@@ -73,10 +73,10 @@ app.MapGet("/users/{username}/albums", (string username) =>
     return data?.AlbumMeta;
 });
 
-app.MapGet("/users/{username}/albums/{albumName}", (string username, string albumName, int from = 0, int to = 32) => 
+app.MapGet("/users/{username}/albums/{albumName}", (string username, string albumName, int from = 0, int size = 32) => 
 {
     int albumCount = AlbumIndexHandler.GetAlbumItemsCount(username, albumName);
-    List<Media>? items = AlbumIndexHandler.GetAlbumItems(username, albumName, from, to);
+    List<Media>? items = AlbumIndexHandler.GetAlbumItems(username, albumName, from, size);
     var result = new
     {
         TotalCount = albumCount,
