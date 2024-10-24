@@ -101,6 +101,19 @@ app.MapPost("/users/{userName}/albums/{albumName}/media-items",(string userName,
     return Results.Created();
 }).Produces(StatusCodes.Status201Created);
 
+app.MapPatch("/users/{username}/albums/{albumName}/{mediaLocator}/likes", (string username, string albumName, string mediaLocator) => 
+{
+    bool success = RequestHelper.IncreaseLikedCount(username, albumName, mediaLocator);
+    if (success)
+    {
+        return Results.Ok();
+    }
+
+    return Results.NoContent();
+})
+.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status200OK);
+
 app.MapGet("/users/{userName}/albums/{albumName}/{mediaLocator}", (string userName, string albumName, string mediaLocator) => 
 {
     // mediaLocator can be e.g. a name or id

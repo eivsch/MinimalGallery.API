@@ -7,4 +7,5 @@ record Media
     public required DateTimeOffset Created {get;set;}
     public int? Size {get;set;}
     public List<Tag> Tags {get;set;} = [];
+    public int Likes {get;set;}
 }

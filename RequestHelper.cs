@@ -46,18 +46,18 @@ static class RequestHelper
 
     public static bool DeleteMedia(string username, string albumName, string searchTerm)
     {
-        (Media? media, int? i) = AlbumIndexHandler.ReadMediaChunk(username, albumName, searchTerm);
+        (Media? media, int? i) = AlbumIndexHandler.FindMediaChunk(username, albumName, searchTerm);
         if (media == null || i == null) return false;
 
         AlbumIndexHandler.DeleteMediaChunk(username, albumName, i.Value);
-        UserMetaHandler.DeleteTagsMeta(username, albumName, media.Tags);
+        UserMetaHandler.HandleMediaDeletion(username, albumName, media);
 
         return true;
     }
 
     public static bool AddTag(string username, string albumName, string searchTerm, NewTagRequest r)
     {
-        (Media? media, int? i) = AlbumIndexHandler.ReadMediaChunk(username, albumName, searchTerm);
+        (Media? media, int? i) = AlbumIndexHandler.FindMediaChunk(username, albumName, searchTerm);
         if (media == null || i == null) return false;
 
         if (media.Tags.Any(a => a.TagName == r.TagName)) return false;
@@ -72,7 +72,7 @@ static class RequestHelper
 
     public static bool DeleteTag(string username, string albumName, string mediaLocator, string tag)
     {
-        (Media? media, int? i) = AlbumIndexHandler.ReadMediaChunk(username, albumName, mediaLocator);
+        (Media? media, int? i) = AlbumIndexHandler.FindMediaChunk(username, albumName, mediaLocator);
         if (media == null || i == null) return false;
         
         Tag? t = media.Tags.FirstOrDefault(f => f.TagName == tag);
@@ -80,7 +80,21 @@ static class RequestHelper
         else media.Tags.Remove(t);
         
         AlbumIndexHandler.WriteMediaChunk(username, albumName, i.Value, media);
-        UserMetaHandler.DeleteTagsMeta(username, albumName, [t]);
+        UserMetaHandler.HandleTagDeletion(username, albumName, [t]);
+
+        return true;
+    }
+
+    public static bool IncreaseLikedCount(string username, string albumName, string searchTerm)
+    {
+        (Media? media, int? i) = AlbumIndexHandler.FindMediaChunk(username, albumName, searchTerm);
+        if (media == null || i == null) return false;
+
+        bool isFirstLike = media.Likes == 0;
+        media.Likes++;
+        AlbumIndexHandler.WriteMediaChunk(username, albumName, i.Value, media);
+        
+        UserMetaHandler.IncreaseLikeCount(username, albumName, isFirstLike);
 
         return true;
     }

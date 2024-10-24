@@ -70,12 +70,28 @@ static class UserMetaHandler
         WriteUser(userMeta);
     }
 
-    public static void DeleteTagsMeta(string username, string albumName, List<Tag> tags)
+    public static void HandleTagDeletion(string username, string albumName, List<Tag> tags)
     {
         UserMeta user = ReadUser(username);
         UserAlbumMeta albumMeta = user.AlbumMeta.Single(x => x.AlbumName == albumName);
         foreach (Tag tag in tags)
-            RemoveTag(albumMeta, tag);
+            UpdateTagMeta(albumMeta, tag);
+
+        WriteUser(user);
+    }
+
+    public static void HandleMediaDeletion(string username, string albumName, Media media)
+    {
+        UserMeta user = ReadUser(username);
+        UserAlbumMeta albumMeta = user.AlbumMeta.Single(x => x.AlbumName == albumName);
+        foreach (Tag tag in media.Tags)
+            UpdateTagMeta(albumMeta, tag);
+
+        if (media.Likes > 0)
+        {
+            albumMeta.TotalLikes -= media.Likes;
+            albumMeta.TotalUniqueLikes--;
+        }
 
         WriteUser(user);
     }
@@ -95,6 +111,15 @@ static class UserMetaHandler
             tagMeta.Count++;
         }
 
+        WriteUser(user);
+    }
+
+    public static void IncreaseLikeCount(string username, string albumName, bool isFirstLike)
+    {
+        UserMeta user = ReadUser(username);
+        UserAlbumMeta ua = user.AlbumMeta.Single(x => x.AlbumName == albumName);
+        ua.TotalLikes++;
+        if (isFirstLike) ua.TotalUniqueLikes++;
         WriteUser(user);
     }
 
@@ -128,7 +153,7 @@ static class UserMetaHandler
         File.WriteAllText(file, json);
     }
 
-    static void RemoveTag(UserAlbumMeta albumMeta, Tag t)
+    static void UpdateTagMeta(UserAlbumMeta albumMeta, Tag t)
     {
         UserAlbumTagMeta tagMeta = albumMeta.Tags.Single(f => f.TagName == t.TagName);
         if (tagMeta.Count <= 1) albumMeta.Tags.Remove(tagMeta);

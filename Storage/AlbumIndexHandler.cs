@@ -91,7 +91,7 @@ static class AlbumIndexHandler
         return result;
     }
 
-    public static (Media? m, int? i) ReadMediaChunk(string username, string albumName, string searchTerm)
+    public static (Media? m, int? i) FindMediaChunk(string username, string albumName, string searchTerm)
     {
         string path = GetPathAlbum(username, albumName);
         if (!File.Exists(path)) return (null, null);
