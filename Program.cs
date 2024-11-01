@@ -5,6 +5,8 @@ using MinimalGallery.API.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors();
+
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -18,6 +20,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+ app.UseCors(builder => builder
+     .AllowAnyOrigin()
+     .AllowAnyMethod()
+     .AllowAnyHeader()); 
 
 app.UseHttpsRedirection();
 app.UseExceptionHandler(exHandler => exHandler.Run(async context => 
@@ -104,15 +111,14 @@ app.MapPost("/users/{userName}/albums/{albumName}/media-items",(string userName,
 app.MapPatch("/users/{username}/albums/{albumName}/{mediaLocator}/likes", (string username, string albumName, string mediaLocator) => 
 {
     bool success = RequestHelper.IncreaseLikedCount(username, albumName, mediaLocator);
-    if (success)
+    if (!success)
     {
-        return Results.Ok();
+        // TODO
     }
 
     return Results.NoContent();
 })
-.Produces(StatusCodes.Status204NoContent)
-.Produces(StatusCodes.Status200OK);
+.Produces(StatusCodes.Status204NoContent);
 
 app.MapGet("/users/{userName}/albums/{albumName}/{mediaLocator}", (string userName, string albumName, string mediaLocator) => 
 {
