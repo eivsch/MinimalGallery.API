@@ -98,4 +98,87 @@ static class RequestHelper
 
         return true;
     }
+
+    public static List<Media>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtension, string? mediaNameContains, int maxSize)
+    {
+        string[] albumsArray = [];
+        if (albumsStr is not null) albumsArray = albumsStr.Split(",");
+        string[] tagsArray = [];
+        if (tagsStr is not null) tagsArray = tagsStr.Split(',');
+        
+        List<Media> hits = [];
+        UserMeta? userMetaData = UserMetaHandler.GetUserMeta(username);
+        if (userMetaData == null) return null;
+
+        List<UserAlbumMeta> albumsToSearch = FilterListOfAlbums(userMetaData.AlbumMeta, albumsArray, tagsArray);
+        foreach (UserAlbumMeta album in albumsToSearch)
+        {
+            int readSize = 200;
+            int from = 0;
+            while (true)
+            {
+                List<Media>? albumItems = AlbumIndexHandler.GetAlbumItems(username, album.AlbumName, from, readSize);
+                if (albumItems == null || albumItems.Count == 0) break;
+                
+                foreach (Media item in albumItems)
+                {
+                    bool tagsMatch = true;
+                    if (tagsArray.Length > 0)
+                    {
+                        // all tags need to match
+                        foreach (string tag in tagsArray)
+                        {
+                            if (item.Tags.Any(t => t.TagName == tag)) continue;
+                            else tagsMatch = false;
+                        }
+                    }
+                    
+                    bool extensionMatch = fileExtension is null || item.Name.EndsWith(fileExtension); 
+                    bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains);
+
+                    if (tagsMatch && extensionMatch && mediaNameMatch) hits.Add(item);
+                    if (hits.Count > maxSize) break;
+                }
+
+                from += readSize;
+            }
+
+            if (hits.Count > maxSize) break;
+        }
+
+        return hits;
+    }
+
+    private static List<UserAlbumMeta> FilterListOfAlbums(List<UserAlbumMeta> allUserAlbums, string[] albumsArray, string[] tagsArray)
+    {
+        List<UserAlbumMeta> albumsToSearch = [];
+        if (albumsArray.Length > 0)
+        {
+            foreach (UserAlbumMeta album in allUserAlbums)
+            {
+                if (albumsArray.Any(a => a == album.AlbumName)) albumsToSearch.Add(album);
+            }
+        }
+        else albumsToSearch = allUserAlbums;    // We won't do any modifications so it's fine to use the same reference
+        
+        List<UserAlbumMeta> albumsWithTags = [];
+        if (tagsArray.Length > 0)
+        {
+            foreach (UserAlbumMeta album in albumsToSearch)
+            {
+                bool tagsMatch = true;
+                foreach (string tag in tagsArray)
+                {
+                    if (album.Tags.Any(t => t.TagName == tag)) continue;
+                    else tagsMatch = false;
+                }
+
+                if (tagsMatch) albumsWithTags.Add(album);
+            }
+        }
+
+        if (albumsWithTags.Count > 0) albumsToSearch = albumsWithTags;
+
+        return albumsToSearch;
+    }
 }
