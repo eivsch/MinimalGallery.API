@@ -8,4 +8,5 @@ record Media
     public int? Size {get;set;}
     public List<Tag> Tags {get;set;} = [];
     public int Likes {get;set;}
+    public int? Index {get;set;}
 }

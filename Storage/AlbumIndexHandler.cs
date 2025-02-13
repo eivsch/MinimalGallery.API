@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using MinimalGallery.API.Models;
@@ -45,17 +46,24 @@ static class AlbumIndexHandler
 
     public static Media? GetMedia(string username, string albumName, string searchTerm)
     {
+        string lineBegin = @"{""Id"":""";
+        searchTerm = lineBegin + searchTerm;
+
         string path = GetPathAlbum(username, albumName);
         if (!File.Exists(path)) return null;
 
+        int index = 0;
         foreach (string line in File.ReadLines(path))
         {
-            if (line.Contains(searchTerm))
+            if (line.StartsWith(searchTerm))
             {
                 Media? media = DeserializeMediaString(line);
-                
+                if (media != null) media.Index = index;
+
                 return media;
             }
+
+            index++;
         }
 
         return null;

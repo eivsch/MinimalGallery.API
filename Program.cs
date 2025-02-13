@@ -5,6 +5,8 @@ using MinimalGallery.API.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.UseUrls("https://0.0.0.0:5041", "http://0.0.0.0:5042");
+
 builder.Services.AddCors();
 
 // Add services to the container.
@@ -15,18 +17,17 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// if (app.Environment.IsDevelopment())
+// {
+app.UseSwagger();
+app.UseSwaggerUI();
+// }
 
  app.UseCors(builder => builder
      .AllowAnyOrigin()
      .AllowAnyMethod()
      .AllowAnyHeader()); 
 
-app.UseHttpsRedirection();
 app.UseExceptionHandler(exHandler => exHandler.Run(async context => 
     {
         await Results.Problem().ExecuteAsync(context);
