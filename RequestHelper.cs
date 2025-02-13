@@ -99,14 +99,14 @@ static class RequestHelper
         return true;
     }
 
-    public static List<Media>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtension, string? mediaNameContains, int maxSize)
+    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtension, string? mediaNameContains, int maxSize)
     {
         string[] albumsArray = [];
         if (albumsStr is not null) albumsArray = albumsStr.Split(",");
         string[] tagsArray = [];
         if (tagsStr is not null) tagsArray = tagsStr.Split(',');
         
-        List<Media> hits = [];
+        List<SearchHit> hits = [];
         UserMeta? userMetaData = UserMetaHandler.GetUserMeta(username);
         if (userMetaData == null) return null;
 
@@ -120,6 +120,7 @@ static class RequestHelper
                 List<Media>? albumItems = AlbumIndexHandler.GetAlbumItems(username, album.AlbumName, from, readSize);
                 if (albumItems == null || albumItems.Count == 0) break;
                 
+                int mediaAlbumIndex = 0;
                 foreach (Media item in albumItems)
                 {
                     bool tagsMatch = true;
@@ -134,16 +135,28 @@ static class RequestHelper
                     }
                     
                     bool extensionMatch = fileExtension is null || item.Name.EndsWith(fileExtension); 
-                    bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains);
+                    bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains) || item.Id.Contains(mediaNameContains);
 
-                    if (tagsMatch && extensionMatch && mediaNameMatch) hits.Add(item);
-                    if (hits.Count > maxSize) break;
+                    if (tagsMatch && extensionMatch && mediaNameMatch) 
+                    {
+                        SearchHit searchHit = new()
+                        {
+                            AlbumName = album.AlbumName,
+                            MediaAlbumIndex = mediaAlbumIndex,
+                            MediaItem = item
+                        };
+                        hits.Add(searchHit);
+                    }
+
+                    mediaAlbumIndex++;
+                    if (hits.Count >= maxSize) break;
                 }
 
                 from += readSize;
+                if (hits.Count >= maxSize) break;
             }
 
-            if (hits.Count > maxSize) break;
+            if (hits.Count >= maxSize) break;
         }
 
         return hits;
