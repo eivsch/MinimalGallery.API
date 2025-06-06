@@ -99,13 +99,15 @@ static class RequestHelper
         return true;
     }
 
-    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtension, string? mediaNameContains, int maxSize)
+    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtensionsStr, string? mediaNameContains, int maxSize, bool allTagsMustMatch = true)
     {
         string[] albumsArray = [];
         if (albumsStr is not null) albumsArray = albumsStr.Split(",");
         string[] tagsArray = [];
         if (tagsStr is not null) tagsArray = tagsStr.Split(',');
-        
+        string[] fileExtensionsArray = [];
+        if (fileExtensionsStr is not null) fileExtensionsArray = fileExtensionsStr.Split(',');
+
         List<SearchHit> hits = [];
         UserMeta? userMetaData = UserMetaHandler.GetUserMeta(username);
         if (userMetaData == null) return null;
@@ -119,25 +121,39 @@ static class RequestHelper
             {
                 List<Media>? albumItems = AlbumIndexHandler.GetAlbumItems(username, album.AlbumName, from, readSize);
                 if (albumItems == null || albumItems.Count == 0) break;
-                
+
                 int mediaAlbumIndex = 0;
                 foreach (Media item in albumItems)
                 {
                     bool tagsMatch = true;
                     if (tagsArray.Length > 0)
                     {
-                        // all tags need to match
-                        foreach (string tag in tagsArray)
+                        if (allTagsMustMatch)
                         {
-                            if (item.Tags.Any(t => t.TagName == tag)) continue;
-                            else tagsMatch = false;
+                            foreach (string tag in tagsArray)
+                            {
+                                if (item.Tags.Any(t => t.TagName == tag)) continue;
+                                else tagsMatch = false;
+                            }
+                        }
+                        else
+                        {
+                            tagsMatch = false;
+                            foreach (string tag in tagsArray)
+                            {
+                                if (item.Tags.Any(t => t.TagName == tag))
+                                {
+                                    tagsMatch = true;
+                                    break; // No need to check further if at least one tag matches
+                                }
+                            }
                         }
                     }
-                    
-                    bool extensionMatch = fileExtension is null || item.Name.EndsWith(fileExtension); 
+
+                    bool extensionMatch = fileExtensionsArray.Length == 0 || fileExtensionsArray.Any(ext => item.Name.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
                     bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains) || item.Id.Contains(mediaNameContains);
 
-                    if (tagsMatch && extensionMatch && mediaNameMatch) 
+                    if (tagsMatch && extensionMatch && mediaNameMatch)
                     {
                         SearchHit searchHit = new()
                         {
