@@ -165,4 +165,39 @@ app.MapGet("/users/{username}/search", (string username, string? albums = null, 
 
 // })
 
+app.MapPost("/users/{username}/saved-searches", (string username, SavedSearchMeta search) =>
+{
+    UserMetaHandler.AddSavedSearch(username, search);
+
+    return Results.Created();
+})
+.Produces(StatusCodes.Status201Created)
+.Produces(StatusCodes.Status400BadRequest);
+
+app.MapGet("/users/{username}/saved-searches", (string username) =>
+{
+    var user = UserMetaHandler.GetUserMeta(username);
+    if (user == null) return Results.NotFound();
+
+    return Results.Ok(user.SavedSearches ?? new List<SavedSearchMeta>());
+})
+.Produces<List<SavedSearchMeta>>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status404NotFound);
+
+app.MapDelete("/users/{username}/saved-searches/{searchName}", (string username, string searchName) =>
+{
+    var user = UserMetaHandler.GetUserMeta(username);
+    if (user == null) return Results.NotFound();
+
+    if (user.SavedSearches == null || !user.SavedSearches.Any(s => s.SearchName == searchName))
+        return Results.NotFound();
+
+    user.SavedSearches.RemoveAll(s => s.SearchName == searchName);
+    UserMetaHandler.WriteUser(user);
+
+    return Results.NoContent();
+})
+.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status404NotFound);
+
 app.Run();

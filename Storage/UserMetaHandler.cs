@@ -136,6 +136,18 @@ static class UserMetaHandler
         WriteUser(userMeta);
     }
 
+    public static void AddSavedSearch(string username, SavedSearchMeta searchMeta)
+    {
+        UserMeta userMeta = ReadUser(username);
+
+        if (userMeta.SavedSearches == null) userMeta.SavedSearches = [];
+        else userMeta.SavedSearches.RemoveAll(s => s.SearchName == searchMeta.SearchName);
+
+        searchMeta.LastUpdated = DateTime.UtcNow;
+        userMeta.SavedSearches.Add(searchMeta);
+        WriteUser(userMeta);
+    }
+
     // helpers
     static UserMeta ReadUser(string username)
     {
@@ -146,7 +158,7 @@ static class UserMetaHandler
         return userMeta;
     }
 
-    static void WriteUser(UserMeta userMeta)
+    public static void WriteUser(UserMeta userMeta)
     {
         string file = GetPathUser(userMeta.Username);
         string json = JsonSerializer.Serialize(userMeta);

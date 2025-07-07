@@ -2,10 +2,11 @@ namespace MinimalGallery.API.Models;
 
 record UserMeta
 {
-    public required string Username {get;set;}
-    public required string Password {get;set;}
-    public required List<UserAlbumMeta> AlbumMeta {get;set;}
-    public required DateTime Created {get;set;}
+    public required string Username { get; set; }
+    public required string Password { get; set; }
+    public required List<UserAlbumMeta> AlbumMeta { get; set; }
+    public required DateTime Created { get; set; }
+    public List<SavedSearchMeta>? SavedSearches { get; set; }
 }
 
 record UserAlbumMeta
@@ -20,6 +21,18 @@ record UserAlbumMeta
 
 record UserAlbumTagMeta
 {
-    public required string TagName {get;set;}
-    public required int Count {get;set;}
+    public required string TagName { get; set; }
+    public required int Count { get; set; }
+}
+
+record SavedSearchMeta
+{
+    public required string SearchName { get; set; }
+    public string? Albums { get; set; }
+    public string? Tags { get; set; }
+    public string? FileExtensions { get; set; }
+    public string? MediaNameContains { get; set; }
+    public int? MaxSize { get; set; }
+    public bool? AllTagsMustMatch { get; set; }
+    public DateTime LastUpdated { get; set; }
 }

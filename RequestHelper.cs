@@ -112,7 +112,7 @@ static class RequestHelper
         UserMeta? userMetaData = UserMetaHandler.GetUserMeta(username);
         if (userMetaData == null) return null;
 
-        List<UserAlbumMeta> albumsToSearch = FilterListOfAlbums(userMetaData.AlbumMeta, albumsArray, tagsArray);
+        List<UserAlbumMeta> albumsToSearch = FilterListOfAlbums(userMetaData.AlbumMeta, albumsArray, tagsArray, allTagsMustMatch);
         foreach (UserAlbumMeta album in albumsToSearch)
         {
             int readSize = 200;
@@ -178,7 +178,7 @@ static class RequestHelper
         return hits;
     }
 
-    private static List<UserAlbumMeta> FilterListOfAlbums(List<UserAlbumMeta> allUserAlbums, string[] albumsArray, string[] tagsArray)
+    private static List<UserAlbumMeta> FilterListOfAlbums(List<UserAlbumMeta> allUserAlbums, string[] albumsArray, string[] tagsArray, bool allTagsMustMatch = true)
     {
         List<UserAlbumMeta> albumsToSearch = [];
         if (albumsArray.Length > 0)
@@ -196,10 +196,27 @@ static class RequestHelper
             foreach (UserAlbumMeta album in albumsToSearch)
             {
                 bool tagsMatch = true;
-                foreach (string tag in tagsArray)
+                if (allTagsMustMatch)
                 {
-                    if (album.Tags.Any(t => t.TagName == tag)) continue;
-                    else tagsMatch = false;
+                    // All tags must be present in album
+                    foreach (string tag in tagsArray)
+                    {
+                        if (album.Tags.Any(t => t.TagName == tag)) continue;
+                        else tagsMatch = false;
+                    }
+                }
+                else
+                {
+                    // At least one tag must be present in album
+                    tagsMatch = false;
+                    foreach (string tag in tagsArray)
+                    {
+                        if (album.Tags.Any(t => t.TagName == tag))
+                        {
+                            tagsMatch = true;
+                            break;
+                        }
+                    }
                 }
 
                 if (tagsMatch) albumsWithTags.Add(album);
