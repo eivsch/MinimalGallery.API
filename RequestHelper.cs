@@ -99,7 +99,7 @@ static class RequestHelper
         return true;
     }
 
-    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtensionsStr, string? mediaNameContains, int maxSize, bool allTagsMustMatch = true)
+    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtensionsStr, string? mediaNameContains, int maxSize, bool allTagsMustMatch = true, int hitsToSkip = 0)
     {
         string[] albumsArray = [];
         if (albumsStr is not null) albumsArray = albumsStr.Split(",");
@@ -112,6 +112,7 @@ static class RequestHelper
         UserMeta? userMetaData = UserMetaHandler.GetUserMeta(username);
         if (userMetaData == null) return null;
 
+        int totalHits = 0;
         List<UserAlbumMeta> albumsToSearch = FilterListOfAlbums(userMetaData.AlbumMeta, albumsArray, tagsArray, allTagsMustMatch);
         foreach (UserAlbumMeta album in albumsToSearch)
         {
@@ -155,13 +156,17 @@ static class RequestHelper
 
                     if (tagsMatch && extensionMatch && mediaNameMatch)
                     {
-                        SearchHit searchHit = new()
+                        totalHits++;
+                        if (totalHits > hitsToSkip)
                         {
-                            AlbumName = album.AlbumName,
-                            MediaAlbumIndex = mediaAlbumIndex,
-                            MediaItem = item
-                        };
-                        hits.Add(searchHit);
+                            SearchHit searchHit = new()
+                            {
+                                AlbumName = album.AlbumName,
+                                MediaAlbumIndex = mediaAlbumIndex,
+                                MediaItem = item
+                            };
+                            hits.Add(searchHit);
+                        }
                     }
 
                     mediaAlbumIndex++;

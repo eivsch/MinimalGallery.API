@@ -151,9 +151,9 @@ app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}/tags/{tag}", 
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status204NoContent);
 
-app.MapGet("/users/{username}/search", (string username, string? albums = null, string? tags = null, string? fileExtensions = null, string? mediaNameContains = null, int maxSize = 128, bool allTagsMustMatch = true) => 
+app.MapGet("/users/{username}/search", (string username, string? albums = null, string? tags = null, string? fileExtensions = null, string? mediaNameContains = null, int maxSize = 128, bool allTagsMustMatch = true, int hitsToSkip = 0) => 
 {
-    List<SearchHit>? result = RequestHelper.Search(username, albums, tags, fileExtensions, mediaNameContains, maxSize, allTagsMustMatch: allTagsMustMatch);
+    List<SearchHit>? result = RequestHelper.Search(username, albums, tags, fileExtensions, mediaNameContains, maxSize, allTagsMustMatch: allTagsMustMatch, hitsToSkip: hitsToSkip);
     return result == null ? Results.NoContent() : Results.Ok(result);
 })
 .Produces(StatusCodes.Status200OK)
