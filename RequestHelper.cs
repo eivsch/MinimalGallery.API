@@ -190,7 +190,7 @@ static class RequestHelper
         {
             foreach (UserAlbumMeta album in allUserAlbums)
             {
-                if (albumsArray.Any(a => a == album.AlbumName)) albumsToSearch.Add(album);
+                if (albumsArray.Any(a => album.AlbumName.Contains(a))) albumsToSearch.Add(album);
             }
         }
         else albumsToSearch = allUserAlbums;    // We won't do any modifications so it's fine to use the same reference
