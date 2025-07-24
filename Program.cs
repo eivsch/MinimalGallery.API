@@ -200,4 +200,18 @@ app.MapDelete("/users/{username}/saved-searches/{searchName}", (string username,
 .Produces(StatusCodes.Status204NoContent)
 .Produces(StatusCodes.Status404NotFound);
 
+app.MapPatch("users/{username}/merge-albums", (string username, MergeAlbumsRequest r) =>
+{
+    UserAlbumMeta result = RequestHelper.MergeAlbums(username, r.AlbumName1, r.AlbumName2, r.AlbumNameTarget);
+
+    return Results.Ok(result);
+}).Produces<UserAlbumMeta>(StatusCodes.Status200OK);
+
+app.MapPatch("users/{username}/albums/{albumName}/rebuild-index", (string username, string albumName, string rebuildType = "name") =>
+{
+    RequestHelper.RebuildAlbumIndex(username, albumName, rebuildType);
+
+    return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent);
+
 app.Run();
