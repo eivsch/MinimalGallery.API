@@ -233,68 +233,136 @@ static class RequestHelper
         return albumsToSearch;
     }
 
-    public static UserAlbumMeta MergeAlbums(string username, string albumName1, string albumName2, string targetAlbumName)
+    public static UserAlbumMeta MergeAlbums(string username, List<string> sourceAlbums, string targetAlbumName)
     {
-        // 1. merge the album indices
-        AlbumIndexHandler.RenameAlbumIndexFile(username, albumName1, targetAlbumName);  // this creates the new index
-        int itemCountPreMerge = AlbumIndexHandler.GetAlbumItemsCount(username, targetAlbumName);
-        int from = 0, readSize = 10000;
-        while (true)
+        if (sourceAlbums == null || sourceAlbums.Count == 0) throw new ArgumentException("At least one source album must be provided.", nameof(sourceAlbums));
+
+        // Normalize source list and remove any accidental references to the target
+        List<string> distinctSources = sourceAlbums.Distinct().ToList();
+
+        // Check if target index file already exists
+        string targetPath = Path.Combine(Globals.StoragePath, username, $"{targetAlbumName}.{Globals.FILE_EXT}");
+        bool targetExists = File.Exists(targetPath);
+
+        // If target does not exist, rename the first source to target (this creates the target index)
+        string renamedSource = null;
+        if (!targetExists)
         {
-            List<Media>? items = AlbumIndexHandler.GetAlbumItems(username, albumName2, from, readSize);
-            if (items == null || items.Count == 0) break;
-
-            foreach (Media media in items)
-            {
-                (Media? existing, int? i) = AlbumIndexHandler.FindMediaChunk(username, targetAlbumName, media.Name, 0, itemCountPreMerge);
-                if (existing is not null)
-                {
-                    string namePart = Path.GetFileNameWithoutExtension(media.Name);
-                    namePart += "_1";
-                    media.Name = namePart + Path.GetExtension(media.Name);
-                }
-
-                AlbumIndexHandler.AddMedia(username, targetAlbumName, media);
-            }
-
-            from += readSize;
+            string firstSource = distinctSources[0];
+            AlbumIndexHandler.RenameAlbumIndexFile(username, firstSource, targetAlbumName);
+            renamedSource = firstSource;
+            // treat the renamed source as contributing to the target (so we still include its meta below)
+            distinctSources.Remove(firstSource);
+            targetExists = true;
+        }
+        else
+        {
+            // If the target exists we should not try to rename any source; remove target from sources if present
+            distinctSources.RemoveAll(s => string.Equals(s, targetAlbumName, StringComparison.OrdinalIgnoreCase));
         }
 
-        AlbumIndexHandler.DeleteIndex(username, albumName2);
+        int itemCountPreMerge = AlbumIndexHandler.GetAlbumItemsCount(username, targetAlbumName);
+        int readSize = 10000;
+
+        // Merge remaining source albums into target
+        foreach (string albumName in distinctSources.ToList())
+        {
+            int from = 0;
+            while (true)
+            {
+                List<Media>? items = AlbumIndexHandler.GetAlbumItems(username, albumName, from, readSize);
+                if (items == null || items.Count == 0) break;
+
+                foreach (Media media in items)
+                {
+                    // ensure unique name in target album
+                    string originalName = media.Name;
+                    int suffix = 1;
+                    (Media? existing, int? i) = AlbumIndexHandler.FindMediaChunk(username, targetAlbumName, media.Name, 0, itemCountPreMerge);
+                    while (existing is not null)
+                    {
+                        string namePart = Path.GetFileNameWithoutExtension(originalName);
+                        media.Name = namePart + "_" + suffix + Path.GetExtension(originalName);
+                        suffix++;
+                        (existing, i) = AlbumIndexHandler.FindMediaChunk(username, targetAlbumName, media.Name, 0, itemCountPreMerge);
+                    }
+
+                    AlbumIndexHandler.AddMedia(username, targetAlbumName, media);
+                    itemCountPreMerge++; // account for newly added item
+                }
+
+                from += readSize;
+            }
+
+            // After merging, delete the source index file
+            AlbumIndexHandler.DeleteIndex(username, albumName);
+        }
 
         // 2. merge the user meta object
         UserMeta? user = UserMetaHandler.GetUserMeta(username) ?? throw new Exception("User does not exist.");
-        UserAlbumMeta album1 = user.AlbumMeta.Single(s => s.AlbumName == albumName1);
-        UserAlbumMeta album2 = user.AlbumMeta.Single(s => s.AlbumName == albumName2);
 
-        // merge album tags
-        List<UserAlbumTagMeta> mergedTags = [.. album1.Tags];
-        foreach (UserAlbumTagMeta t in album2.Tags)
+        // collect metas for all source albums and the existing target (if any)
+        List<UserAlbumMeta> metasToMerge = new List<UserAlbumMeta>();
+
+        // If we renamed one source into the target, its meta still exists under the original name and should be merged
+        foreach (string src in sourceAlbums)
         {
-            UserAlbumTagMeta? existingTag = mergedTags.FirstOrDefault(f => f.TagName == t.TagName);
-            if (existingTag is not null)
-            {
-                existingTag.Count += t.Count;
-            }
-            else
-            {
-                mergedTags.Add(t);
-            }
+            UserAlbumMeta? m = user.AlbumMeta.FirstOrDefault(s => s.AlbumName == src);
+            if (m is not null) metasToMerge.Add(m);
         }
+
+        // also include existing target meta if it existed originally and wasn't part of sourceAlbums
+        if (user.AlbumMeta.Any(a => a.AlbumName == targetAlbumName) && !metasToMerge.Any(m => m.AlbumName == targetAlbumName))
+        {
+            UserAlbumMeta? tmeta = user.AlbumMeta.FirstOrDefault(a => a.AlbumName == targetAlbumName);
+            if (tmeta is not null) metasToMerge.Add(tmeta);
+        }
+
+        // merge album tags and counts
+        List<UserAlbumTagMeta> mergedTags = new List<UserAlbumTagMeta>();
+        int totalLikes = 0;
+        int totalUniqueLikes = 0;
+
+        foreach (UserAlbumMeta srcMeta in metasToMerge)
+        {
+            if (srcMeta.Tags != null)
+            {
+                foreach (UserAlbumTagMeta t in srcMeta.Tags)
+                {
+                    UserAlbumTagMeta? existingTag = mergedTags.FirstOrDefault(f => f.TagName == t.TagName);
+                    if (existingTag is not null)
+                    {
+                        existingTag.Count += t.Count;
+                    }
+                    else
+                    {
+                        mergedTags.Add(new UserAlbumTagMeta { TagName = t.TagName, Count = t.Count });
+                    }
+                }
+            }
+
+            totalLikes += srcMeta.TotalLikes;
+            totalUniqueLikes += srcMeta.TotalUniqueLikes;
+        }
+
+        int totalCount = AlbumIndexHandler.GetAlbumItemsCount(username, targetAlbumName);
 
         UserAlbumMeta mergedAlbum = new()
         {
             AlbumName = targetAlbumName,
             Created = DateTime.UtcNow,
             Tags = mergedTags,
-            TotalLikes = album1.TotalLikes + album2.TotalLikes,
-            TotalUniqueLikes = album1.TotalUniqueLikes + album2.TotalUniqueLikes,
-            TotalCount = from + 1
+            TotalLikes = totalLikes,
+            TotalUniqueLikes = totalUniqueLikes,
+            TotalCount = totalCount
         };
 
-        // remove original albums and add the merged one
-        user.AlbumMeta.Remove(album1);
-        user.AlbumMeta.Remove(album2);
+        // remove original albums (sources and original target if present) and add the merged one
+        HashSet<string> namesToRemove = new HashSet<string>(sourceAlbums, StringComparer.OrdinalIgnoreCase);
+        // also remove original target meta if present to replace with merged
+        namesToRemove.Add(targetAlbumName);
+
+        user.AlbumMeta.RemoveAll(a => namesToRemove.Contains(a.AlbumName));
         user.AlbumMeta.Add(mergedAlbum);
         UserMetaHandler.WriteUser(user);
 

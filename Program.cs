@@ -202,7 +202,7 @@ app.MapDelete("/users/{username}/saved-searches/{searchName}", (string username,
 
 app.MapPatch("users/{username}/merge-albums", (string username, MergeAlbumsRequest r) =>
 {
-    UserAlbumMeta result = RequestHelper.MergeAlbums(username, r.AlbumName1, r.AlbumName2, r.AlbumNameTarget);
+    UserAlbumMeta result = RequestHelper.MergeAlbums(username, r.AlbumNamesSource, r.AlbumNameTarget);
 
     return Results.Ok(result);
 }).Produces<UserAlbumMeta>(StatusCodes.Status200OK);
