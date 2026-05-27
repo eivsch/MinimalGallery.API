@@ -72,20 +72,20 @@ static class AlbumIndexHandler
     public static List<Media>? GetAlbumItems(string username, string albumName, int from = 0, int size = 32)
     {
         if (from < 0) throw new ArgumentException("Parameter 'from' must be 0 or above.");
-        
+
         List<Media> result = [];
 
         string path = GetPathAlbum(username, albumName);
         if (!File.Exists(path)) return null;
-        
+
         byte[] buffer = new byte[CHUNK_SIZE];
         using (FileStream fs = new(path, FileMode.Open, FileAccess.Read))
         {
             int endIndex = from + size;
-            for(; from < endIndex; from++)
+            for (; from < endIndex; from++)
             {
-                int offset = from*CHUNK_SIZE;
-                if (offset > fs.Length-CHUNK_SIZE) break;
+                int offset = from * CHUNK_SIZE;
+                if (offset > fs.Length - CHUNK_SIZE) break;
 
                 fs.Seek(offset, SeekOrigin.Begin);
                 int n = fs.Read(buffer, 0, CHUNK_SIZE);
@@ -99,16 +99,16 @@ static class AlbumIndexHandler
         return result;
     }
 
-    public static (Media? m, int? i) FindMediaChunk(string username, string albumName, string searchTerm)
+    public static (Media? m, int? i) FindMediaChunk(string username, string albumName, string searchTerm, int startChunk = 0, int endChunk = 10000)
     {
         string path = GetPathAlbum(username, albumName);
         if (!File.Exists(path)) return (null, null);
 
-        int chunkIndex = 0;
+        int chunkIndex = startChunk;
         byte[] buffer = new byte[CHUNK_SIZE];
         using (FileStream fs = new(path, FileMode.Open, FileAccess.Read))
         {
-            while (true)
+            while (startChunk <= endChunk)
             {
                 int offset = chunkIndex*CHUNK_SIZE;
                 if (offset > fs.Length-CHUNK_SIZE) break;
@@ -175,22 +175,31 @@ static class AlbumIndexHandler
         return count;
     }
 
+    public static void RenameAlbumIndexFile(string username, string albumName, string newName)
+    {
+        string path = GetPathAlbum(username, albumName);
+        if (!File.Exists(path)) throw new Exception("The album to rename does not exist.");
+
+        string newPath = GetPathAlbum(username, newName);
+        File.Move(path, newPath);
+    }
+
     // helpers
     private static byte[] GetDataAsByteChunk(Media data)
     {
         byte[] dataChunk = new byte[CHUNK_SIZE];
-        
+
         // serialize to json
         string json = JsonSerializer.Serialize(data);
         json += END_TAG;
         byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-        if (jsonBytes.Length > CHUNK_SIZE-2) throw new Exception($"Overflow error: Maximum chunk size for a media record is {CHUNK_SIZE-2}. Current size is {jsonBytes.Length}.");
+        if (jsonBytes.Length > CHUNK_SIZE - 2) throw new Exception($"Overflow error: Maximum chunk size for a media record is {CHUNK_SIZE - 2}. Current size is {jsonBytes.Length}.");
         jsonBytes.CopyTo(dataChunk, 0);
-        
+
         // add a line ending after padding
         byte[] lineEnding = Encoding.UTF8.GetBytes("\n");
         byte l = lineEnding[0];
-        dataChunk[dataChunk.Length-1] = l;
+        dataChunk[dataChunk.Length - 1] = l;
 
         return dataChunk;
     }
