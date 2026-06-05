@@ -130,8 +130,8 @@ app.MapGet("/users/{userName}/albums/{albumName}/{mediaLocator}", (string userNa
 
 app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}", (string username, string albumName, string mediaLocator) => 
 {
-    bool deleted = RequestHelper.DeleteMedia(username, albumName, mediaLocator);
-    return deleted ? Results.NoContent() : Results.Ok();
+    Media? deletedMedia = RequestHelper.DeleteMedia(username, albumName, mediaLocator);
+    return deletedMedia != null ? Results.NoContent() : Results.Ok();
 })
 .Produces(StatusCodes.Status204NoContent)
 .Produces(StatusCodes.Status200OK);
@@ -213,5 +213,18 @@ app.MapPatch("users/{username}/albums/{albumName}/rebuild-index", (string userna
 
     return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent);
+
+app.MapPatch("users/{username}/albums/{sourceAlbum}/{mediaLocator}/move", (string username, string sourceAlbum, string mediaLocator, MoveMediaRequest r) =>
+{
+    MoveMediaResponse response = RequestHelper.MoveMedia(username, sourceAlbum, mediaLocator, r.TargetAlbumName, r.MediaName);
+    if (!response.Success)
+    {
+        return Results.Problem(response.ErrorMessage, statusCode: StatusCodes.Status409Conflict);
+    }
+
+    return Results.Ok(response);
+})
+.Produces<MoveMediaResponse>(StatusCodes.Status200OK)
+.Produces<ProblemDetails>(StatusCodes.Status409Conflict);
 
 app.Run();

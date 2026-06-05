@@ -44,15 +44,15 @@ static class RequestHelper
         AlbumIndexHandler.AddMedia(username, albumName, mediaData);
     }
 
-    public static bool DeleteMedia(string username, string albumName, string searchTerm)
+    public static Media? DeleteMedia(string username, string albumName, string searchTerm)
     {
         (Media? media, int? i) = AlbumIndexHandler.FindMediaChunk(username, albumName, searchTerm);
-        if (media == null || i == null) return false;
+        if (media == null || i == null) return null;
 
         AlbumIndexHandler.DeleteMediaChunk(username, albumName, i.Value);
         UserMetaHandler.HandleMediaDeletion(username, albumName, media);
 
-        return true;
+        return media;
     }
 
     public static bool AddTag(string username, string albumName, string searchTerm, NewTagRequest r)
@@ -411,5 +411,19 @@ static class RequestHelper
 
             currentChunkIndex++;
         }
+    }
+
+    public static MoveMediaResponse MoveMedia(string username, string sourceAlbum, string mediaLocator, string targetAlbum, string mediaName)
+    {
+        (Media? existingMedia, _) = AlbumIndexHandler.FindMediaChunk(username, targetAlbum, mediaName);
+        if (existingMedia != null) return new MoveMediaResponse(false, "A media with the same name already exists in the target album.");
+
+        Media? m = DeleteMedia(username, sourceAlbum, mediaLocator);
+        if (m == null) return new MoveMediaResponse(false, "Media not found in the source album.");
+        
+        AlbumIndexHandler.AddMedia(username, targetAlbum, m);
+        foreach (Tag tag in m.Tags) UserMetaHandler.AddTagMeta(username, targetAlbum, tag);
+
+        return new MoveMediaResponse(true, null);
     }
 }
