@@ -152,7 +152,7 @@ static class RequestHelper
                     }
 
                     bool extensionMatch = fileExtensionsArray.Length == 0 || fileExtensionsArray.Any(ext => item.Name.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
-                    bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains) || item.Id.Contains(mediaNameContains);
+                    bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains, StringComparison.OrdinalIgnoreCase) || item.Id.Contains(mediaNameContains, StringComparison.OrdinalIgnoreCase);
                     bool createdAfterMatch = createdAfter is null || item.Created.Date > createdAfter.Value.Date;
                     bool createdBeforeMatch = createdBefore is null || item.Created.Date < createdBefore.Value.Date;
 
