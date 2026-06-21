@@ -34,5 +34,7 @@ record SavedSearchMeta
     public string? MediaNameContains { get; set; }
     public int? MaxSize { get; set; }
     public bool? AllTagsMustMatch { get; set; }
+    public string? CreatedAfter { get; set; }
+    public string? CreatedBefore { get; set; }
     public DateTime LastUpdated { get; set; }
 }

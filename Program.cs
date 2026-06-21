@@ -151,12 +151,34 @@ app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}/tags/{tag}", 
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status204NoContent);
 
-app.MapGet("/users/{username}/search", (string username, string? albums = null, string? tags = null, string? fileExtensions = null, string? mediaNameContains = null, int maxSize = 128, bool allTagsMustMatch = true, int hitsToSkip = 0) => 
+app.MapGet("/users/{username}/search", (string username, string? albums = null, string? tags = null, string? fileExtensions = null, string? mediaNameContains = null, int maxSize = 128, bool allTagsMustMatch = true, int hitsToSkip = 0, string? createdAfterDate = null, string? createdBeforeDate = null) => 
 {
-    List<SearchHit>? result = RequestHelper.Search(username, albums, tags, fileExtensions, mediaNameContains, maxSize, allTagsMustMatch: allTagsMustMatch, hitsToSkip: hitsToSkip);
+    DateTimeOffset? createdAfterParsed = null;
+    DateTimeOffset? createdBeforeParsed = null;
+    if (createdAfterDate != null)
+    {
+        if (!DateTimeOffset.TryParse(createdAfterDate, out DateTimeOffset d))
+        {
+            return Results.BadRequest($"Invalid 'createdAfter' value: {createdAfterDate}");
+        }
+
+        createdAfterParsed = d;
+    }
+
+    if (createdBeforeDate != null)
+    {
+        if (!DateTimeOffset.TryParse(createdBeforeDate, out DateTimeOffset d))
+        {
+            return Results.BadRequest($"Invalid 'createdBefore' value: {createdBeforeDate}");
+        }
+        
+        createdBeforeParsed = d;
+    }
+
+    List<SearchHit>? result = RequestHelper.Search(username, albums, tags, fileExtensions, mediaNameContains, maxSize, allTagsMustMatch: allTagsMustMatch, hitsToSkip: hitsToSkip, createdAfter: createdAfterParsed, createdBefore: createdBeforeParsed);
     return result == null ? Results.NoContent() : Results.Ok(result);
 })
-.Produces(StatusCodes.Status200OK)
+.Produces<List<SearchHit>>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status204NoContent)
 .Produces(StatusCodes.Status400BadRequest);
 

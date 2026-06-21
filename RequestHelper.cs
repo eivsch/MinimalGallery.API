@@ -99,7 +99,7 @@ static class RequestHelper
         return true;
     }
 
-    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtensionsStr, string? mediaNameContains, int maxSize, bool allTagsMustMatch = true, int hitsToSkip = 0)
+    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtensionsStr, string? mediaNameContains, int maxSize, bool allTagsMustMatch = true, int hitsToSkip = 0, DateTimeOffset? createdAfter = null, DateTimeOffset? createdBefore = null)
     {
         string[] albumsArray = [];
         if (albumsStr is not null) albumsArray = albumsStr.Split(",");
@@ -153,8 +153,10 @@ static class RequestHelper
 
                     bool extensionMatch = fileExtensionsArray.Length == 0 || fileExtensionsArray.Any(ext => item.Name.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
                     bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains) || item.Id.Contains(mediaNameContains);
+                    bool createdAfterMatch = createdAfter is null || item.Created.Date > createdAfter.Value.Date;
+                    bool createdBeforeMatch = createdBefore is null || item.Created.Date < createdBefore.Value.Date;
 
-                    if (tagsMatch && extensionMatch && mediaNameMatch)
+                    if (tagsMatch && extensionMatch && mediaNameMatch && createdAfterMatch && createdBeforeMatch)
                     {
                         totalHits++;
                         if (totalHits > hitsToSkip)
