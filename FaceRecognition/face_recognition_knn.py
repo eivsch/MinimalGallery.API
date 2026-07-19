@@ -192,6 +192,7 @@ if __name__ == "__main__":
     classifier = train("C:/WebGallery/Data/KnownPeople/train_dir", model_save_path="trained_knn_model.clf", n_neighbors=3)
     print("Training complete!")
 
+    count = 0
     # STEP 2: Using the trained classifier, make predictions for unknown images
     for image_file in os.listdir("C:/WebGallery/Data/TestFolderPeople"):
         full_file_path = os.path.join("C:/WebGallery/Data/TestFolderPeople", image_file)
@@ -200,11 +201,15 @@ if __name__ == "__main__":
 
         # Find all people in the image using a trained classifier model
         # Note: You can pass in either a classifier file name or a classifier model instance
-        predictions = predict(full_file_path, model_path="trained_knn_model.clf", distance_threshold=0.51)
+        predictions = predict(full_file_path, model_path="trained_knn_model.clf", distance_threshold=0.49)
 
         # Print results on the console
         for name, (top, right, bottom, left) in predictions:
+            if name != "unknown":
+                count += 1
             print("- Found {} at ({}, {})".format(name, left, top))
 
         # Display results overlaid on an image
         #show_prediction_labels_on_image(os.path.join("C:/WebGallery/Data/TestFolderPeople", image_file), predictions)
+
+    print(f"Total recognized faces with distance < 0.49: {count} of total {len(os.listdir('C:/WebGallery/Data/TestFolderPeople'))} test images")

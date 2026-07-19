@@ -76,24 +76,17 @@ def load_or_train_classifier(train_dir_path, model_path):
     print(f"Trained and saved classifier to: {model_path}")
     return clf, encodings
 
-
-# Training directory
-train_dir_path = 'C:/WebGallery/Data/KnownPeople/train_dir'
-model_path = os.path.join(os.path.dirname(__file__), "face_svc_model.pkl")
-
-clf, known_encodings = load_or_train_classifier(train_dir_path, model_path)
-
-# Load the test image with unknown faces into a numpy array
-test_dir_path = 'C:/WebGallery/Data/TestFolderPeople'
-for test_image_name in os.listdir(test_dir_path):
-    test_image = face_recognition.load_image_file(os.path.join(test_dir_path, test_image_name))
+def predict_faces_in_image(clf, known_encodings, test_image_path):
+    # Load the test image with unknown faces into a numpy array
+    test_image = face_recognition.load_image_file(test_image_path)
     unknown_faces = face_recognition.face_locations(test_image)
+    
     no = len(unknown_faces)
     if no == 0:
-        continue
-
-    #print(f"Found {no} face(s) in {test_image_name}:")
-
+        print(f"No faces found in {test_image_path}")
+        return
+    
+    predictions = []
     # Predict all the faces in the test image using the trained classifier
     for i in range(no):
         test_image_enc = face_recognition.face_encodings(test_image)[i]
@@ -106,7 +99,29 @@ for test_image_name in os.listdir(test_dir_path):
         if best_distance is None:
             print(f"{predicted_name} (distance: N/A)")
         else:
-            if best_distance < 0.51:
-                print(f"Match found: {predicted_name} in {test_image_name} with distance level {best_distance}")
-            else:
-                print(f"No match found in {test_image_name} (best distance: {best_distance} for {predicted_name})")
+            predictions.append((predicted_name, best_distance))
+    
+    return predictions
+
+
+# Training directory
+train_dir_path = 'C:/WebGallery/Data/KnownPeople/train_dir'
+model_path = os.path.join(os.path.dirname(__file__), "face_svc_model.pkl")
+
+clf, known_encodings = load_or_train_classifier(train_dir_path, model_path)
+
+count = 0
+# Load the test image with unknown faces into a numpy array
+test_dir_path = 'C:/WebGallery/Data/TestFolderPeople'
+for test_image_name in os.listdir(test_dir_path):
+    print(f"Processing test image: {test_image_name}")
+    predictions = predict_faces_in_image(clf, known_encodings, os.path.join(test_dir_path, test_image_name))
+    if predictions is None:
+        continue
+
+    for predicted_name, best_distance in predictions:
+        print(f"- Found {predicted_name} (distance {best_distance})")
+        if best_distance < 0.51:
+            count += 1
+
+print(f"Total recognized faces with distance < 0.51: {count} of total {len(os.listdir(test_dir_path))} test images")

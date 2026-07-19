@@ -4,3 +4,4 @@ How to install face_recognition:
     - pip install setuptools<81
     - pip install .\dlib-20.0.99-cp314-cp314-win_amd64.whl
     - pip install face_recognition
+    - pip install "fastapi[standard]"

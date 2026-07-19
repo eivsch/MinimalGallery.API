@@ -28,7 +28,17 @@ class Album(BaseModel):
     album: str
 
 
-def post_face_tag(album: Album, media_locator: str, recognized_person_name: str) -> None:
+def get_people_count_tag(people_count: int) -> str | None:
+    if people_count == 3:
+        return "3s"
+    if people_count == 4:
+        return "4s"
+    if people_count > 4:
+        return "group"
+    return None
+
+
+def post_tag(album: Album, media_locator: str, tag_name: str) -> None:
     user_segment = parse.quote(album.user, safe="")
     album_segment = parse.quote(album.album, safe="")
     media_segment = parse.quote(media_locator, safe="")
@@ -37,7 +47,7 @@ def post_face_tag(album: Album, media_locator: str, recognized_person_name: str)
         f"{minimal_api_url}/users/{user_segment}/albums/{album_segment}/"
         f"{media_segment}/tags"
     )
-    body = json.dumps({"tagName": recognized_person_name}).encode("utf-8")
+    body = json.dumps({"tagName": tag_name}).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     req = request.Request(url=url, data=body, headers=headers, method="POST")
 
@@ -47,12 +57,12 @@ def post_face_tag(album: Album, media_locator: str, recognized_person_name: str)
         with request.urlopen(req, timeout=10, context=ssl_context) as response:
             if response.status < 200 or response.status >= 300:
                 raise RuntimeError(
-                    f"Failed to add tag '{recognized_person_name}' for '{media_locator}'. "
+                    f"Failed to add tag '{tag_name}' for '{media_locator}'. "
                     f"Status code: {response.status}."
                 )
     except error.HTTPError as ex:
         raise RuntimeError(
-            f"Failed to add tag '{recognized_person_name}' for '{media_locator}'. "
+            f"Failed to add tag '{tag_name}' for '{media_locator}'. "
             f"Status code: {ex.code}."
         ) from ex
     except error.URLError as ex:
@@ -70,14 +80,19 @@ def process_album_faces(job_id: str, album_path: str, album: Album) -> None:
                 continue
 
             print(f"Processing image: {full_file_path}")
-            predictions = predict(full_file_path, model_path="trained_knn_model.clf", distance_threshold=0.51)
+            predictions = predict(full_file_path, model_path="trained_knn_model.clf", distance_threshold=0.49)
             posted_tag_names: set[str] = set()
+
+            people_count_tag = get_people_count_tag(len(predictions))
+            if people_count_tag is not None:
+                post_tag(album, image_file, people_count_tag)
+                posted_tag_names.add(people_count_tag)
 
             for name, (top, right, bottom, left) in predictions:
                 if name != "unknown" and name not in posted_tag_names:
                     print(f"- Match found: {name} in {image_file} at ({left}, {top})")
                     
-                    post_face_tag(album, image_file, name)
+                    post_tag(album, image_file, name)
                     posted_tag_names.add(name)
 
                 # else:
