@@ -31,11 +31,11 @@ $ pip3 install scikit-learn
 
 """
 
-import math
-from sklearn import neighbors
 import os
 import os.path
+import math
 import pickle
+from sklearn import neighbors
 from PIL import Image, ImageDraw
 import face_recognition
 from face_recognition.face_recognition_cli import image_files_in_folder
@@ -124,8 +124,10 @@ def predict(X_img_path, knn_clf=None, model_path=None, distance_threshold=0.6):
     :return: a list of names and face locations for the recognized faces in the image: [(name, bounding box), ...].
         For faces of unrecognized persons, the name 'unknown' will be returned.
     """
-    if not os.path.isfile(X_img_path) or os.path.splitext(X_img_path)[1][1:] not in ALLOWED_EXTENSIONS:
-        raise Exception("Invalid image path: {}".format(X_img_path))
+    extension = os.path.splitext(X_img_path)[1][1:].lower()
+    if not os.path.isfile(X_img_path) or extension not in ALLOWED_EXTENSIONS:
+        print(f"Skipping unsupported or invalid image path: {X_img_path}")
+        return []
 
     if knn_clf is None and model_path is None:
         raise Exception("Must supply knn classifier either thourgh knn_clf or model_path")
@@ -136,7 +138,12 @@ def predict(X_img_path, knn_clf=None, model_path=None, distance_threshold=0.6):
             knn_clf = pickle.load(f)
 
     # Load image file and find face locations
-    X_img = face_recognition.load_image_file(X_img_path)
+    try:
+        X_img = face_recognition.load_image_file(X_img_path)
+    except Exception as ex:
+        # Some files can exist and have a supported extension but still fail to decode.
+        print(f"Skipping unreadable image '{X_img_path}': {ex}")
+        return []
     X_face_locations = face_recognition.face_locations(X_img)
 
     # If no faces are found in the image, return an empty result.
