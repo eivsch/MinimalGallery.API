@@ -259,4 +259,25 @@ app.MapPatch("users/{username}/albums/{sourceAlbum}/{mediaLocator}/move", (strin
 .Produces<MoveMediaResponse>(StatusCodes.Status200OK)
 .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
 
+app.MapPatch("/users/{username}/albums/{albumName}/rebuild-tags", (string username, string albumName) =>
+{
+    AlbumIndexHandler.RebuildAlbumTags(username, albumName);
+
+    return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent);
+
+app.MapPost("/users/{username}/albums/{albumName}/rename", (string username, string albumName, RenameAlbumRequest r) =>
+{
+    AlbumIndexHandler.RenameAlbumIndexFile(username, albumName, r.NewAlbumName);
+
+    return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent);
+
+app.MapPost("/users/{username}/ad-hoc-jobs/{jobName}", (string username, string jobName) =>
+{
+    RequestHelper.RunAdHocJob(username, jobName);
+
+    return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent);
+
 app.Run();
