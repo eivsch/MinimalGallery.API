@@ -192,7 +192,7 @@ static class RequestHelper
         {
             foreach (UserAlbumMeta album in allUserAlbums)
             {
-                if (albumsArray.Any(a => album.AlbumName.Contains(a))) albumsToSearch.Add(album);
+                if (albumsArray.Any(a => album.AlbumName.Equals(a, StringComparison.OrdinalIgnoreCase))) albumsToSearch.Add(album);
             }
         }
         else albumsToSearch = allUserAlbums;    // We won't do any modifications so it's fine to use the same reference
@@ -427,5 +427,45 @@ static class RequestHelper
         foreach (Tag tag in m.Tags) UserMetaHandler.AddTagMeta(username, targetAlbum, tag);
 
         return new MoveMediaResponse(true, null);
+    }
+
+    public static void RunAdHocJob(string username, string jobName)
+    {
+        if (string.IsNullOrWhiteSpace(jobName)) throw new ArgumentException("Job name cannot be null or whitespace.", nameof(jobName));
+        else if (jobName == "tag-video-images")
+        {
+            // Loop through all albums with "_video_images" in the name and tag all media items with the tag "screencap".
+            UserMeta? user = UserMetaHandler.GetUserMeta(username);
+            if (user == null) throw new Exception($"User '{username}' not found.");
+            
+            var albums = user.AlbumMeta.Where(a => a.AlbumName.Contains("_video_images")).ToList();
+            foreach (UserAlbumMeta? album in albums)
+            {
+                int from = 0;
+                int readSize = 100;
+                while (true)
+                {
+                    List<Media>? items = AlbumIndexHandler.GetAlbumItems(username, album.AlbumName, from, readSize);
+                    if (items == null || items.Count == 0) break;
+
+                    foreach (Media media in items)
+                    {
+                        if (!media.Tags.Any(t => t.TagName == "screencap"))
+                        {
+                            Tag newTag = new() { TagName = "screencap", Created = DateTime.UtcNow };
+                            media.Tags.Add(newTag);
+                            AlbumIndexHandler.WriteMediaChunk(username, album.AlbumName, media.Index!.Value, media);
+                            UserMetaHandler.AddTagMeta(username, album.AlbumName, newTag);
+                        }
+                    }
+
+                    from += readSize;
+                }
+            }
+        }
+        else
+        {
+            throw new ArgumentException($"Unknown job name: {jobName}", nameof(jobName));
+        }
     }
 }

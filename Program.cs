@@ -68,18 +68,28 @@ app.MapPost("/users/{userName}/albums", (string userName, NewAlbumRequest r) =>
     return Results.Created();
 }).Produces(StatusCodes.Status201Created);
 
-app.MapGet("/users/{username}/albums", (string username) => 
+app.MapGet("/users/{username}/albums", (string username, int from = 0, int size = 32) => 
 {
-    UserMeta? data = MinimalGallery.API.Storage.UserMetaHandler.GetUserMeta(username);
+    UserMeta? data = UserMetaHandler.GetUserMeta(username);
     if (data == null) return null;
-    foreach (UserAlbumMeta a in data.AlbumMeta)
+
+    List<UserAlbumMeta> albumsToReturn = data.AlbumMeta.Skip(from).Take(size).ToList();
+    foreach (UserAlbumMeta a in albumsToReturn)
     {
         int totalCount = AlbumIndexHandler.GetAlbumItemsCount(username, a.AlbumName);
         a.TotalCount = totalCount;
     }
 
-    return data?.AlbumMeta;
-});
+    return new GetAlbumsResponse
+    {
+        Albums = albumsToReturn,
+        TotalCount = data.AlbumMeta.Count,
+        From = from,
+        CurrentSize = albumsToReturn.Count
+    };
+})
+.Produces<GetAlbumsResponse>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status204NoContent);
 
 app.MapGet("/users/{username}/albums/{albumName}", (string username, string albumName, int from = 0, int size = 32) => 
 {
@@ -248,5 +258,26 @@ app.MapPatch("users/{username}/albums/{sourceAlbum}/{mediaLocator}/move", (strin
 })
 .Produces<MoveMediaResponse>(StatusCodes.Status200OK)
 .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
+
+app.MapPatch("/users/{username}/albums/{albumName}/rebuild-tags", (string username, string albumName) =>
+{
+    AlbumIndexHandler.RebuildAlbumTags(username, albumName);
+
+    return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent);
+
+app.MapPost("/users/{username}/albums/{albumName}/rename", (string username, string albumName, RenameAlbumRequest r) =>
+{
+    AlbumIndexHandler.RenameAlbumIndexFile(username, albumName, r.NewAlbumName);
+
+    return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent);
+
+app.MapPost("/users/{username}/ad-hoc-jobs/{jobName}", (string username, string jobName) =>
+{
+    RequestHelper.RunAdHocJob(username, jobName);
+
+    return Results.NoContent();
+}).Produces(StatusCodes.Status204NoContent);
 
 app.Run();

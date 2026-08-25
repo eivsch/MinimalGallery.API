@@ -69,9 +69,9 @@ static class AlbumIndexHandler
         return null;
     }
 
-    public static List<Media>? GetAlbumItems(string username, string albumName, int from = 0, int size = 32)
+    public static List<Media>? GetAlbumItems(string username, string albumName, int fromIndex = 0, int size = 32)
     {
-        if (from < 0) throw new ArgumentException("Parameter 'from' must be 0 or above.");
+        if (fromIndex < 0) throw new ArgumentException("Parameter 'from' must be 0 or above.");
 
         List<Media> result = [];
 
@@ -81,10 +81,10 @@ static class AlbumIndexHandler
         byte[] buffer = new byte[CHUNK_SIZE];
         using (FileStream fs = new(path, FileMode.Open, FileAccess.Read))
         {
-            int endIndex = from + size;
-            for (; from < endIndex; from++)
+            int endIndex = fromIndex + size;
+            for (; fromIndex < endIndex; fromIndex++)
             {
-                int offset = from * CHUNK_SIZE;
+                int offset = fromIndex * CHUNK_SIZE;
                 if (offset > fs.Length - CHUNK_SIZE) break;
 
                 fs.Seek(offset, SeekOrigin.Begin);
@@ -92,7 +92,11 @@ static class AlbumIndexHandler
                 if (n == 0) break;
                 string chunkStr = Encoding.UTF8.GetString(buffer);
                 Media? m = DeserializeMediaString(chunkStr);
-                if (m != null) result.Add(m);
+                if (m != null)
+                {
+                    m.Index = fromIndex;
+                    result.Add(m);
+                }
             }
         }
 
@@ -182,6 +186,44 @@ static class AlbumIndexHandler
 
         string newPath = GetPathAlbum(username, newName);
         File.Move(path, newPath);
+    }
+
+    public static void RebuildAlbumTags(string username, string albumName)
+    {
+        string path = GetPathAlbum(username, albumName);
+        if (!File.Exists(path)) throw new Exception($"The album {albumName} doesn't exist. Create it first.");
+
+        List<UserAlbumTagMeta> tags = new();
+        foreach (string line in File.ReadLines(path))
+        {
+            Media? media = DeserializeMediaString(line);
+            if (media == null) continue;
+
+            foreach (Tag tag in media.Tags)
+            {
+                UserAlbumTagMeta? t = tags.FirstOrDefault(f => f.TagName == tag.TagName);
+                if (t == null)
+                {
+                    t = new UserAlbumTagMeta
+                    {
+                        TagName = tag.TagName,
+                        Count = 1
+                    };
+                    tags.Add(t);
+                }
+                else
+                {
+                    t.Count++;
+                }
+            }
+        }
+
+        UserMeta userMeta = UserMetaHandler.GetUserMeta(username) ?? throw new Exception($"The user '{username}' doesn't exist.");
+        UserAlbumMeta? albumMeta = userMeta.AlbumMeta.FirstOrDefault(f => f.AlbumName == albumName) 
+            ?? throw new Exception($"The album '{albumName}' doesn't exist for user '{username}'.");
+        albumMeta.Tags = tags;
+        
+        UserMetaHandler.WriteUser(userMeta);
     }
 
     // helpers
