@@ -36,5 +36,7 @@ record SavedSearchMeta
     public bool? AllTagsMustMatch { get; set; }
     public string? CreatedAfter { get; set; }
     public string? CreatedBefore { get; set; }
+    public long? MinFileSize { get; set; }
+    public long? MaxFileSize { get; set; }
     public DateTime LastUpdated { get; set; }
 }

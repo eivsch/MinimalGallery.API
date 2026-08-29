@@ -110,21 +110,21 @@ static class RequestHelper
         return true;
     }
 
-    public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtensionsStr, string? mediaNameContains, int maxSize, bool allTagsMustMatch = true, int hitsToSkip = 0, DateTimeOffset? createdAfter = null, DateTimeOffset? createdBefore = null)
+    public static List<SearchHit>? Search(string username, SearchRequest request, DateTimeOffset? createdAfter = null, DateTimeOffset? createdBefore = null)
     {
         string[] albumsArray = [];
-        if (albumsStr is not null) albumsArray = albumsStr.Split(",");
+        if (request.Albums is not null) albumsArray = request.Albums.Split(",");
         string[] tagsArray = [];
-        if (tagsStr is not null) tagsArray = tagsStr.Split(',');
+        if (request.Tags is not null) tagsArray = request.Tags.Split(',');
         string[] fileExtensionsArray = [];
-        if (fileExtensionsStr is not null) fileExtensionsArray = fileExtensionsStr.Split(',');
+        if (request.FileExtensions is not null) fileExtensionsArray = request.FileExtensions.Split(',');
 
         List<SearchHit> hits = [];
         UserMeta? userMetaData = UserMetaHandler.GetUserMeta(username);
         if (userMetaData == null) return null;
 
         int totalHits = 0;
-        List<UserAlbumMeta> albumsToSearch = FilterListOfAlbums(userMetaData.AlbumMeta, albumsArray, tagsArray, allTagsMustMatch);
+        List<UserAlbumMeta> albumsToSearch = FilterListOfAlbums(userMetaData.AlbumMeta, albumsArray, tagsArray, request.AllTagsMustMatch);
         foreach (UserAlbumMeta album in albumsToSearch)
         {
             int readSize = 200;
@@ -140,7 +140,7 @@ static class RequestHelper
                     bool tagsMatch = true;
                     if (tagsArray.Length > 0)
                     {
-                        if (allTagsMustMatch)
+                        if (request.AllTagsMustMatch)
                         {
                             foreach (string tag in tagsArray)
                             {
@@ -163,14 +163,18 @@ static class RequestHelper
                     }
 
                     bool extensionMatch = fileExtensionsArray.Length == 0 || fileExtensionsArray.Any(ext => item.Name.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
-                    bool mediaNameMatch = mediaNameContains is null || item.Name.Contains(mediaNameContains, StringComparison.OrdinalIgnoreCase) || item.Id.Contains(mediaNameContains, StringComparison.OrdinalIgnoreCase);
+                    bool mediaNameMatch = request.MediaNameContains is null || item.Name.Contains(request.MediaNameContains, StringComparison.OrdinalIgnoreCase) || item.Id.Contains(request.MediaNameContains, StringComparison.OrdinalIgnoreCase);
                     bool createdAfterMatch = createdAfter is null || item.Created.Date > createdAfter.Value.Date;
                     bool createdBeforeMatch = createdBefore is null || item.Created.Date < createdBefore.Value.Date;
+                    bool fileSizeMatch = (request.MinFileSize is null && request.MaxFileSize is null) ||
+                        (item.Size is not null &&
+                        (request.MinFileSize is null || item.Size >= request.MinFileSize) &&
+                        (request.MaxFileSize is null || item.Size <= request.MaxFileSize));
 
-                    if (tagsMatch && extensionMatch && mediaNameMatch && createdAfterMatch && createdBeforeMatch)
+                    if (tagsMatch && extensionMatch && mediaNameMatch && createdAfterMatch && createdBeforeMatch && fileSizeMatch)
                     {
                         totalHits++;
-                        if (totalHits > hitsToSkip)
+                        if (totalHits > (request.HitsToSkip ?? 0))
                         {
                             SearchHit searchHit = new()
                             {
@@ -183,14 +187,14 @@ static class RequestHelper
                     }
 
                     mediaAlbumIndex++;
-                    if (hits.Count >= maxSize) break;
+                    if (hits.Count >= request.MaxResults) break;
                 }
 
                 from += readSize;
-                if (hits.Count >= maxSize) break;
+                if (hits.Count >= request.MaxResults) break;
             }
 
-            if (hits.Count >= maxSize) break;
+            if (hits.Count >= request.MaxResults) break;
         }
 
         return hits;

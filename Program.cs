@@ -169,31 +169,36 @@ app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}/tags/{tag}", 
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status204NoContent);
 
-app.MapGet("/users/{username}/search", (string username, string? albums = null, string? tags = null, string? fileExtensions = null, string? mediaNameContains = null, int maxSize = 128, bool allTagsMustMatch = true, int hitsToSkip = 0, string? createdAfterDate = null, string? createdBeforeDate = null) => 
+app.MapGet("/users/{username}/search", (string username, [AsParameters] SearchRequest request) => 
 {
+    if (request.MinFileSize < 0 || request.MaxFileSize < 0 || request.MinFileSize > request.MaxFileSize)
+    {
+        return Results.BadRequest("File size bounds must be non-negative, and 'minFileSize' cannot exceed 'maxFileSize'.");
+    }
+
     DateTimeOffset? createdAfterParsed = null;
     DateTimeOffset? createdBeforeParsed = null;
-    if (createdAfterDate != null)
+    if (request.CreatedAfterDate != null)
     {
-        if (!DateTimeOffset.TryParse(createdAfterDate, out DateTimeOffset d))
+        if (!DateTimeOffset.TryParse(request.CreatedAfterDate, out DateTimeOffset d))
         {
-            return Results.BadRequest($"Invalid 'createdAfter' value: {createdAfterDate}");
+            return Results.BadRequest($"Invalid 'createdAfter' value: {request.CreatedAfterDate}");
         }
 
         createdAfterParsed = d;
     }
 
-    if (createdBeforeDate != null)
+    if (request.CreatedBeforeDate != null)
     {
-        if (!DateTimeOffset.TryParse(createdBeforeDate, out DateTimeOffset d))
+        if (!DateTimeOffset.TryParse(request.CreatedBeforeDate, out DateTimeOffset d))
         {
-            return Results.BadRequest($"Invalid 'createdBefore' value: {createdBeforeDate}");
+            return Results.BadRequest($"Invalid 'createdBefore' value: {request.CreatedBeforeDate}");
         }
         
         createdBeforeParsed = d;
     }
 
-    List<SearchHit>? result = RequestHelper.Search(username, albums, tags, fileExtensions, mediaNameContains, maxSize, allTagsMustMatch: allTagsMustMatch, hitsToSkip: hitsToSkip, createdAfter: createdAfterParsed, createdBefore: createdBeforeParsed);
+    List<SearchHit>? result = RequestHelper.Search(username, request, createdAfterParsed, createdBeforeParsed);
     return result == null ? Results.NoContent() : Results.Ok(result);
 })
 .Produces<List<SearchHit>>(StatusCodes.Status200OK)
