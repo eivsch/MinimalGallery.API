@@ -99,6 +99,17 @@ static class RequestHelper
         return true;
     }
 
+    public static bool RenameMedia(string username, string albumName, string mediaLocator, string newMediaName)
+    {
+        (Media? media, int? index) = AlbumIndexHandler.FindMediaChunk(username, albumName, mediaLocator);
+        if (media == null || index == null) return false;
+
+        media.Name = newMediaName;
+        AlbumIndexHandler.WriteMediaChunk(username, albumName, index.Value, media);
+
+        return true;
+    }
+
     public static List<SearchHit>? Search(string username, string? albumsStr, string? tagsStr, string? fileExtensionsStr, string? mediaNameContains, int maxSize, bool allTagsMustMatch = true, int hitsToSkip = 0, DateTimeOffset? createdAfter = null, DateTimeOffset? createdBefore = null)
     {
         string[] albumsArray = [];

@@ -146,6 +146,14 @@ app.MapDelete("/users/{username}/albums/{albumName}/{mediaLocator}", (string use
 .Produces(StatusCodes.Status204NoContent)
 .Produces(StatusCodes.Status200OK);
 
+app.MapPatch("/users/{username}/albums/{albumName}/{mediaLocator}/rename", (string username, string albumName, string mediaLocator, RenameMediaRequest r) =>
+{
+    bool renamed = RequestHelper.RenameMedia(username, albumName, mediaLocator, r.NewMediaName);
+    return renamed ? Results.NoContent() : Results.NotFound();
+})
+.Produces(StatusCodes.Status204NoContent)
+.Produces(StatusCodes.Status404NotFound);
+
 app.MapPost("/users/{userName}/albums/{albumName}/{mediaLocator}/tags", (string userName, string albumName, string mediaLocator, NewTagRequest r) => 
 {
     bool created = RequestHelper.AddTag(userName, albumName, mediaLocator, r);
@@ -269,6 +277,7 @@ app.MapPatch("/users/{username}/albums/{albumName}/rebuild-tags", (string userna
 app.MapPost("/users/{username}/albums/{albumName}/rename", (string username, string albumName, RenameAlbumRequest r) =>
 {
     AlbumIndexHandler.RenameAlbumIndexFile(username, albumName, r.NewAlbumName);
+    UserMetaHandler.RenameAlbumMeta(username, albumName, r.NewAlbumName);
 
     return Results.NoContent();
 }).Produces(StatusCodes.Status204NoContent);

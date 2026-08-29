@@ -70,6 +70,16 @@ static class UserMetaHandler
         WriteUser(userMeta);
     }
 
+    public static void RenameAlbumMeta(string username, string albumName, string newAlbumName)
+    {
+        UserMeta userMeta = ReadUser(username);
+        UserAlbumMeta? albumMeta = userMeta.AlbumMeta.FirstOrDefault(f => f.AlbumName == albumName);
+        if (albumMeta == null) return;
+
+        albumMeta.AlbumName = newAlbumName;
+        WriteUser(userMeta);
+    }
+
     public static void HandleTagDeletion(string username, string albumName, List<Tag> tags)
     {
         UserMeta user = ReadUser(username);
